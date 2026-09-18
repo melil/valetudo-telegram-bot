@@ -115,8 +115,11 @@ func (c *Client) CleanSegments(segmentIDs []string, iterations int) error {
 }
 
 func (c *Client) ResetConsumable(cType string, cSubType string) error {
-	url := c.baseURL + "/capabilities/ConsumableMonitoringCapability"
-	payload := fmt.Sprintf(`{"action":"reset", "type":"%s", "subType":"%s"}`, cType, cSubType)
+	url := c.baseURL + "/capabilities/ConsumableMonitoringCapability/" + cType
+	if cSubType != "" && cSubType != "none" && cSubType != "all" {
+		url += "/" + cSubType
+	}
+	payload := `{"action":"reset"}`
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBufferString(payload))
 	if err != nil {
 		return err
@@ -134,6 +137,58 @@ func (c *Client) ResetConsumable(cType string, cSubType string) error {
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	return nil
+}
+
+func (c *Client) SetMopWashTemperature(temp string) error {
+	url := c.baseURL + "/capabilities/MopDockMopWashTemperatureControlCapability"
+	payload := fmt.Sprintf(`{"temperature":"%s"}`, temp)
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBufferString(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (c *Client) SetMopDryingTime(duration string) error {
+	url := c.baseURL + "/capabilities/MopDockMopDryingTimeControlCapability"
+	payload := fmt.Sprintf(`{"duration":"%s"}`, duration)
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBufferString(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (c *Client) SetMopExtension(enable bool) error {
+	action := "disable"
+	if enable {
+		action = "enable"
+	}
+	return c.TriggerCapabilityAction("MopExtensionControlCapability", action)
 }
 
 func (c *Client) GetAttributes() ([]GenericAttribute, error) {

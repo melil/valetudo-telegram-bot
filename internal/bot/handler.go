@@ -143,19 +143,37 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "💨 <b>Запущена выгрузка пыли в док-станцию.</b>", markup)
 		return
 	case "dock_wash":
-		_ = b.val.TriggerCapabilityAction("MopWashingManualTriggerCapability", "start")
+		_ = b.val.TriggerCapabilityAction("MopDockCleanManualTriggerCapability", "start")
 		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: "⬅️ Назад к станции", CallbackData: "menu_station"}}}}
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "🧼 <b>Запущена стирка швабр.</b>", markup)
 		return
 	case "dock_dry_start":
-		_ = b.val.TriggerCapabilityAction("MopDryingManualTriggerCapability", "start")
+		_ = b.val.TriggerCapabilityAction("MopDockDryManualTriggerCapability", "start")
 		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: "⬅️ Назад к станции", CallbackData: "menu_station"}}}}
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "♨️ <b>Запущена сушка швабр.</b>", markup)
 		return
 	case "dock_dry_stop":
-		_ = b.val.TriggerCapabilityAction("MopDryingManualTriggerCapability", "stop")
+		_ = b.val.TriggerCapabilityAction("MopDockDryManualTriggerCapability", "stop")
 		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: "⬅️ Назад к станции", CallbackData: "menu_station"}}}}
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "❄️ <b>Сушка швабр остановлена.</b>", markup)
+		return
+	case "menu_wash_temp":
+		text := "🌡 <b>Температура воды для стирки швабр:</b>\n<i>Dreame X30 Pro поддерживает подогрев воды до 60°C.</i>"
+		rows := [][]telegram.InlineKeyboardButton{
+			{{Text: "❄️ Холодная", CallbackData: "set_wash_temp:cold"}, {Text: "🌤 Тёплая", CallbackData: "set_wash_temp:warm"}},
+			{{Text: "♨️ Горячая (60°C)", CallbackData: "set_wash_temp:hot"}, {Text: "🔥 Очень горячая", CallbackData: "set_wash_temp:scalding"}},
+			{{Text: "⬅️ Назад к станции", CallbackData: "menu_station"}},
+		}
+		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
+		return
+	case "menu_dry_time":
+		text := "⏱ <b>Время сушки швабр горячим воздухом:</b>"
+		rows := [][]telegram.InlineKeyboardButton{
+			{{Text: "2 часа", CallbackData: "set_dry_time:2h"}, {Text: "3 часа", CallbackData: "set_dry_time:3h"}},
+			{{Text: "4 часа", CallbackData: "set_dry_time:4h"}, {Text: "Без нагрева", CallbackData: "set_dry_time:cold"}},
+			{{Text: "⬅️ Назад к станции", CallbackData: "menu_station"}},
+		}
+		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 		return
 	}
 
@@ -195,6 +213,15 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 		return
+
+	case "sub_mopextend":
+		text := "🦵 <b>Выдвижная лапа швабры (Dreame MopExtend™):</b>\nПозволяет роботу мыть пол вплотную к плинтусам и огибать ножки мебели."
+		rows := [][]telegram.InlineKeyboardButton{
+			{{Text: "✅ Включить", CallbackData: "set_mopextend:enable"}, {Text: "❌ Выключить", CallbackData: "set_mopextend:disable"}},
+			{{Text: "⬅️ Назад к настройкам", CallbackData: "menu_settings"}},
+		}
+		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
+		return
 	}
 
 	// --- Установка самих настроек ---
@@ -217,6 +244,29 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		_ = b.val.SetPreset("WaterUsageControlCapability", val)
 		text, markup := b.getSettingsMainMenu()
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "✅ Влажность установлена на: <b>"+val+"</b>\n\n"+text, markup)
+		return
+	}
+	if strings.HasPrefix(data, "set_wash_temp:") {
+		val := strings.TrimPrefix(data, "set_wash_temp:")
+		_ = b.val.SetMopWashTemperature(val)
+		b.sendStationMenu(cb.Message.MessageID)
+		return
+	}
+	if strings.HasPrefix(data, "set_dry_time:") {
+		val := strings.TrimPrefix(data, "set_dry_time:")
+		_ = b.val.SetMopDryingTime(val)
+		b.sendStationMenu(cb.Message.MessageID)
+		return
+	}
+	if strings.HasPrefix(data, "set_mopextend:") {
+		val := strings.TrimPrefix(data, "set_mopextend:")
+		_ = b.val.SetMopExtension(val == "enable")
+		text, markup := b.getSettingsMainMenu()
+		status := "включена"
+		if val != "enable" {
+			status = "выключена"
+		}
+		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "✅ Выдвижная лапа (MopExtend) <b>"+status+"</b>.\n\n"+text, markup)
 		return
 	}
 

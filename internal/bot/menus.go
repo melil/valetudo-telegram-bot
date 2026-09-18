@@ -36,6 +36,7 @@ func (b *Bot) sendStationMenu(msgID int) {
 		{{Text: "💨 Вытряхнуть пыль", CallbackData: "dock_empty"}},
 		{{Text: "🧼 Постирать швабры", CallbackData: "dock_wash"}},
 		{{Text: "♨️ Старт сушки", CallbackData: "dock_dry_start"}, {Text: "❄️ Стоп сушки", CallbackData: "dock_dry_stop"}},
+		{{Text: "🌡 Температура стирки", CallbackData: "menu_wash_temp"}, {Text: "⏱ Время сушки", CallbackData: "menu_dry_time"}},
 	}
 	markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 
@@ -58,6 +59,7 @@ func (b *Bot) getSettingsMainMenu() (string, *telegram.InlineKeyboardMarkup) {
 		{{Text: "🛠 Тип уборки", CallbackData: "sub_mode"}},
 		{{Text: "💨 Мощность всасывания", CallbackData: "sub_fan"}},
 		{{Text: "💧 Влажность швабр", CallbackData: "sub_water"}},
+		{{Text: "🦵 Выдвижная швабра (MopExtend)", CallbackData: "sub_mopextend"}},
 		{{Text: "⬅️ Назад к роботу", CallbackData: "menu_robot"}},
 	}
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
