@@ -114,6 +114,24 @@ func (c *Client) CleanSegments(segmentIDs []string, iterations int) error {
 	return nil
 }
 
+func (c *Client) GetSegments() ([]MapSegment, error) {
+	resp, err := c.httpClient.Get(c.baseURL + "/capabilities/MapSegmentationCapability")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	var list []MapSegment
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
 func (c *Client) ResetConsumable(cType string, cSubType string) error {
 	url := c.baseURL + "/capabilities/ConsumableMonitoringCapability/" + cType
 	if cSubType != "" && cSubType != "none" && cSubType != "all" {
@@ -217,6 +235,24 @@ func (c *Client) GetConsumables() ([]ConsumableItem, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+func (c *Client) GetConsumableProperties() (*ConsumableProperties, error) {
+	resp, err := c.httpClient.Get(c.baseURL + "/capabilities/ConsumableMonitoringCapability/properties")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	var props ConsumableProperties
+	if err := json.NewDecoder(resp.Body).Decode(&props); err != nil {
+		return nil, err
+	}
+	return &props, nil
 }
 
 func (c *Client) GetCurrentSessionStats() (min int, sec int, areaM2 float64) {

@@ -2,23 +2,75 @@ package bot
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	"tgbot/internal/telegram"
 )
 
+type RoomInfo struct {
+	ID   string
+	Name string
+}
+
 type WizardSession struct {
 	Mode          string
 	SelectedRooms map[string]bool
+	Rooms         []RoomInfo
 	Iterations    int
 	MessageID     int
 }
 
+func (b *Bot) getRooms() ([]RoomInfo, error) {
+	segments, err := b.val.GetSegments()
+	if err != nil {
+		return nil, fmt.Errorf("ошибка связи с Valetudo API: %w", err)
+	}
+	if len(segments) == 0 {
+		return nil, fmt.Errorf("пылесос не вернул список комнат (проверьте разметку карты в Valetudo)")
+	}
+
+	var rooms []RoomInfo
+	for _, s := range segments {
+		name := strings.TrimSpace(s.Name)
+		if alias, ok := b.cfg.RoomAliases[s.ID]; ok && alias != "" {
+			name = alias
+		} else if alias, ok := b.cfg.RoomAliases[s.Name]; ok && alias != "" {
+			name = alias
+		}
+		if name == "" {
+			name = "Комната " + s.ID
+		}
+		rooms = append(rooms, RoomInfo{ID: s.ID, Name: name})
+	}
+
+	sort.Slice(rooms, func(i, j int) bool {
+		id1, err1 := strconv.Atoi(rooms[i].ID)
+		id2, err2 := strconv.Atoi(rooms[j].ID)
+		if err1 == nil && err2 == nil {
+			return id1 < id2
+		}
+		return rooms[i].ID < rooms[j].ID
+	})
+	return rooms, nil
+}
+
 func (b *Bot) startCleaningWizard() {
+	rooms, err := b.getRooms()
+	if err != nil || len(rooms) == 0 {
+		errMsg := "⚠️ Не удалось получить список комнат от пылесоса."
+		if err != nil {
+			errMsg += "\n" + err.Error()
+		}
+		_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, errMsg, b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		return
+	}
+
 	b.wizardMu.Lock()
 	b.activeWizards[b.cfg.AllowedChatID] = &WizardSession{
 		SelectedRooms: make(map[string]bool),
+		Rooms:         rooms,
 		Iterations:    1,
 	}
 	b.wizardMu.Unlock()
@@ -68,23 +120,32 @@ func (b *Bot) renderWizardStep1() (string, *telegram.InlineKeyboardMarkup) {
 func (b *Bot) renderWizardStep2(ws *WizardSession) (string, *telegram.InlineKeyboardMarkup) {
 	text := fmt.Sprintf("🪄 <b>Шаг 2 из 3: Выберите комнаты</b>\nРежим: <code>%s</code>\n\n<i>Отметьте одну или несколько комнат и нажмите «Далее»:</i>", formatModeTitle(ws.Mode))
 
-	order := []string{"1", "2", "3", "4"}
 	var rows [][]telegram.InlineKeyboardButton
-
+	allSelected := len(ws.Rooms) > 0
 	hasSelected := false
-	for _, id := range order {
-		name := b.cfg.RoomAliases[id]
+	for _, r := range ws.Rooms {
 		icon := "◻️"
-		if ws.SelectedRooms[id] {
+		if ws.SelectedRooms[r.ID] {
 			icon = "✅"
 			hasSelected = true
+		} else {
+			allSelected = false
 		}
 		btn := telegram.InlineKeyboardButton{
-			Text:         fmt.Sprintf("%s %s", icon, name),
-			CallbackData: "wiz_toggle_room:" + id,
+			Text:         fmt.Sprintf("%s %s", icon, r.Name),
+			CallbackData: "wiz_toggle_room:" + r.ID,
 		}
 		rows = append(rows, []telegram.InlineKeyboardButton{btn})
 	}
+
+	// Кнопка быстрого выбора всех / сброса
+	var quickRow []telegram.InlineKeyboardButton
+	if allSelected {
+		quickRow = append(quickRow, telegram.InlineKeyboardButton{Text: "◻️ Снять все", CallbackData: "wiz_select_none"})
+	} else {
+		quickRow = append(quickRow, telegram.InlineKeyboardButton{Text: "☑️ Выбрать все", CallbackData: "wiz_select_all"})
+	}
+	rows = append(rows, quickRow)
 
 	var controlRow []telegram.InlineKeyboardButton
 	if hasSelected {
@@ -98,9 +159,9 @@ func (b *Bot) renderWizardStep2(ws *WizardSession) (string, *telegram.InlineKeyb
 
 func (b *Bot) renderWizardStep3(ws *WizardSession) (string, *telegram.InlineKeyboardMarkup) {
 	var roomNames []string
-	for id, ok := range ws.SelectedRooms {
-		if ok {
-			roomNames = append(roomNames, b.cfg.RoomAliases[id])
+	for _, r := range ws.Rooms {
+		if ws.SelectedRooms[r.ID] {
+			roomNames = append(roomNames, r.Name)
 		}
 	}
 
@@ -160,6 +221,18 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 		text, markup := b.renderWizardStep2(ws)
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, markup)
 
+	case data == "wiz_select_all":
+		for _, r := range ws.Rooms {
+			ws.SelectedRooms[r.ID] = true
+		}
+		text, markup := b.renderWizardStep2(ws)
+		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, markup)
+
+	case data == "wiz_select_none":
+		ws.SelectedRooms = make(map[string]bool)
+		text, markup := b.renderWizardStep2(ws)
+		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, markup)
+
 	case data == "wiz_to_step3":
 		text, markup := b.renderWizardStep3(ws)
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, markup)
@@ -178,10 +251,10 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 
 		var targetIDs []string
 		var targetNames []string
-		for id, active := range ws.SelectedRooms {
-			if active {
-				targetIDs = append(targetIDs, id)
-				targetNames = append(targetNames, b.cfg.RoomAliases[id])
+		for _, r := range ws.Rooms {
+			if ws.SelectedRooms[r.ID] {
+				targetIDs = append(targetIDs, r.ID)
+				targetNames = append(targetNames, r.Name)
 			}
 		}
 

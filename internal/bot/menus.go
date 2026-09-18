@@ -66,7 +66,7 @@ func (b *Bot) getSettingsMainMenu() (string, *telegram.InlineKeyboardMarkup) {
 }
 
 func (b *Bot) sendConsumablesMenu(msgID int) {
-	items, err := b.val.GetConsumables()
+	displays, err := b.getConsumablesDisplay()
 	if err != nil {
 		if msgID == 0 {
 			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "❌ Ошибка связи с Valetudo API", b.cfg.IsDNDActive(), nil)
@@ -77,43 +77,39 @@ func (b *Bot) sendConsumablesMenu(msgID int) {
 	}
 
 	text := "🧹 <b>Состояние расходников:</b>\n\n"
+	for _, d := range displays {
+		bar := renderProgressBar(d.Percent)
+		if d.IsDepleted {
+			text += fmt.Sprintf("%s <b>%s:</b> ⚠️ <b>Ресурс исчерпан!</b>\n• <code>[%s] 0%%</code>\n\n", d.Icon, d.Name, bar)
+		} else if d.IsMinutes {
+			text += fmt.Sprintf(
+				"%s <b>%s:</b>\n• Осталось: <b>%s</b> из %d ч\n• <code>[%s] %d%%</code>\n\n",
+				d.Icon, d.Name, d.RemainingFormatted, d.MaxH, bar, d.Percent,
+			)
+		} else {
+			text += fmt.Sprintf(
+				"%s <b>%s:</b>\n• Осталось: <b>%d%%</b>\n• <code>[%s] %d%%</code>\n\n",
+				d.Icon, d.Name, d.Percent, bar, d.Percent,
+			)
+		}
+	}
+
+	// Кнопки сброса в 2 компактные колонки
 	var rows [][]telegram.InlineKeyboardButton
-
-	for _, item := range items {
-		valMin := item.Remaining.Value / 60
-		name := item.SubType
-		var maxMin int
-
-		switch {
-		case item.Type == "brush" && item.SubType == "main":
-			name = "Турбощетка"
-			maxMin = 240 * 60
-		case item.Type == "brush" && item.SubType == "side_right":
-			name = "Боковая щетка"
-			maxMin = 150 * 60
-		case item.Type == "filter" && item.SubType == "main":
-			name = "HEPA-фильтр"
-			maxMin = 90 * 60
-		case item.Type == "cleaning" && item.SubType == "sensor":
-			name = "Сенсоры"
-			maxMin = 30 * 60
-		default:
-			name = item.Type + "_" + item.SubType
-			maxMin = 150 * 60
+	var currentRow []telegram.InlineKeyboardButton
+	for _, d := range displays {
+		btn := telegram.InlineKeyboardButton{
+			Text:         fmt.Sprintf("🔄 %s", d.ShortName),
+			CallbackData: fmt.Sprintf("reset_cons:%s:%s", d.Item.Type, d.Item.SubType),
 		}
-
-		pct := (valMin * 100) / maxMin
-		if pct > 100 {
-			pct = 100
+		currentRow = append(currentRow, btn)
+		if len(currentRow) == 2 {
+			rows = append(rows, currentRow)
+			currentRow = nil
 		}
-
-		bar := renderProgressBar(pct)
-		text += fmt.Sprintf("• <b>%s</b>: %d ч\n<code>[%s] %d%%</code>\n\n", name, valMin/60, bar, pct)
-
-		rows = append(rows, []telegram.InlineKeyboardButton{{
-			Text:         fmt.Sprintf("🔄 Сбросить: %s", name),
-			CallbackData: fmt.Sprintf("reset_cons:%s:%s", item.Type, item.SubType),
-		}})
+	}
+	if len(currentRow) > 0 {
+		rows = append(rows, currentRow)
 	}
 
 	rows = append(rows, []telegram.InlineKeyboardButton{{Text: "⬅️ Назад к роботу", CallbackData: "menu_robot"}})

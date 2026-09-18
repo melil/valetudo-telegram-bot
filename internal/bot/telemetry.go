@@ -105,21 +105,17 @@ func (b *Bot) buildTelemetryReport() string {
 		}
 	}
 
-	mainH, sideH, filterH, sensorH := "?", "?", "?", "?"
-	if list, err := b.val.GetConsumables(); err == nil {
-		for _, item := range list {
-			hours := strconv.Itoa(item.Remaining.Value / 60)
-			switch {
-			case item.Type == "brush" && item.SubType == "main":
-				mainH = hours
-			case item.Type == "brush" && item.SubType == "side_right":
-				sideH = hours
-			case item.Type == "filter" && item.SubType == "main":
-				filterH = hours
-			case item.Type == "cleaning" && item.SubType == "sensor":
-				sensorH = hours
+	var consLines []string
+	if displays, err := b.getConsumablesDisplay(); err == nil && len(displays) > 0 {
+		for _, d := range displays {
+			if d.IsMinutes {
+				consLines = append(consLines, fmt.Sprintf("• %s: <b>%d ч</b> из %d ч (%d%%)", d.Name, d.RemainingH, d.MaxH, d.Percent))
+			} else {
+				consLines = append(consLines, fmt.Sprintf("• %s: <b>%d%%</b>", d.Name, d.Percent))
 			}
 		}
+	} else {
+		consLines = []string{"• Данные о расходниках недоступны"}
 	}
 
 	uptimeStr := getSystemUptime()
@@ -153,14 +149,11 @@ func (b *Bot) buildTelemetryReport() string {
 			"• Моющее средство: <b>%s</b>\n"+
 			"• Пылесборник: <b>%s</b>\n\n"+
 			"⚙️ <b>Остаточный ресурс узлов:</b>\n"+
-			"• Основная щетка: <b>%s ч</b> (~240 ч макс)\n"+
-			"• Боковая щетка: <b>%s ч</b> (~150 ч макс)\n"+
-			"• HEPA-фильтр: <b>%s ч</b> (~90 ч макс)\n"+
-			"• Очистка датчиков: <b>%s ч</b> (~30 ч макс)\n\n"+
+			"%s\n\n"+
 			"📊 <b>Статус:</b> Все системы в норме",
 		batLevel, robotStatus, statusExtra, formatModeTitle(currentMode), uptimeStr,
 		lastMin, lastSec, lastArea, totCount, totHours, totArea,
 		formatDockSensor(cleanWater), formatDockSensor(dirtyWater), formatDockSensor(detergent), formatDockSensor(dustbag),
-		mainH, sideH, filterH, sensorH,
+		strings.Join(consLines, "\n"),
 	)
 }

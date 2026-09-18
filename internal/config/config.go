@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -56,13 +57,14 @@ func Load() (*Config, error) {
 		WatcherInterval: 12 * time.Second,
 		DNDEnabled:      true,
 		DNDStartHour:    23,
-		DNDEndHour:      8,
-		RoomAliases: map[string]string{
-			"1": "Кухня",
-			"2": "Диван",
-			"3": "Коридор",
-			"4": "Воркспейс",
-		},
+		RoomAliases: make(map[string]string),
+	}
+
+	if ra := os.Getenv("ROOM_ALIASES"); ra != "" {
+		var aliases map[string]string
+		if err := json.Unmarshal([]byte(ra), &aliases); err == nil {
+			cfg.RoomAliases = aliases
+		}
 	}
 
 	if dnd := os.Getenv("DND_ENABLED"); dnd != "" {

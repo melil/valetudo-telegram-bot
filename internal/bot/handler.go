@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,7 +13,7 @@ func (b *Bot) getMainMenuMarkup() *telegram.ReplyKeyboardMarkup {
 		Keyboard: [][]string{
 			{"🪄 Старт уборки", "🛑 Закончить уборку"},
 			{"🤖 Робот", "🏠 Станция"},
-			{"📢 Найти робота"},
+			{"🗺 Комнаты", "📢 Найти робота"},
 		},
 		ResizeKeyboard: true,
 	}
@@ -42,6 +43,19 @@ func (b *Bot) handleTextCommand(text string) {
 	case "/locate", "📢 Найти робота":
 		_ = b.val.TriggerLocate()
 		_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "🔊 Подаю звуковой сигнал!", b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+
+	case "/rooms", "🗺 Комнаты":
+		rooms, err := b.getRooms()
+		if err != nil {
+			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "❌ Ошибка получения комнат: "+err.Error(), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		} else {
+			var lines []string
+			for _, r := range rooms {
+				lines = append(lines, fmt.Sprintf("• <b>%s</b> (ID: <code>%s</code>)", r.Name, r.ID))
+			}
+			report := "🗺 <b>Комнаты, обнаруженные в Valetudo:</b>\n\n" + strings.Join(lines, "\n") + "\n\n<i>Для точечной уборки нажмите «🪄 Старт уборки»</i>"
+			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, report, b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		}
 
 	case "/settings", "⚙️ Настройки":
 		text, markup := b.getSettingsMainMenu()
