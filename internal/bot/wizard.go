@@ -175,8 +175,12 @@ func (b *Bot) renderWizardStep3(ws *WizardSession) (string, *telegram.InlineKeyb
 
 	rows := [][]telegram.InlineKeyboardButton{
 		{
-			{Text: "1️⃣ Один проход (1x)", CallbackData: "wiz_iter:1"},
-			{Text: "2️⃣ Двойной проход (2x)", CallbackData: "wiz_iter:2"},
+			{Text: "1️⃣ 1 проход (1x)", CallbackData: "wiz_iter:1"},
+			{Text: "2️⃣ 2 прохода (2x)", CallbackData: "wiz_iter:2"},
+		},
+		{
+			{Text: "3️⃣ 3 прохода (3x)", CallbackData: "wiz_iter:3"},
+			{Text: "4️⃣ 4 прохода (4x)", CallbackData: "wiz_iter:4"},
 		},
 		{
 			{Text: "⬅️ Назад к комнатам", CallbackData: "wiz_back_to_step2"},
