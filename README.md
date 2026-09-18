@@ -35,6 +35,9 @@
 │   └── bot/
 │       └── main.go          # Точка входа, инициализация и Graceful Shutdown
 ├── internal/
+│   ├── i18n/
+│   │   ├── locales/         # JSON-словари переводов (ru.json, en.json, de.json, zh.json)
+│   │   └── i18n.go          # Встроенная i18n-система (go:embed) с fallback
 │   ├── config/
 │   │   └── config.go        # Парсинг ENV, DND-логика, маппинг комнат
 │   ├── telegram/
@@ -45,6 +48,7 @@
 │   │   └── models.go        # DTO модели Valetudo API
 │   └── bot/
 │       ├── bot.go           # Контроллер Bot, жизненный цикл и запуск
+│       ├── consumables.go   # Модуль расчёта и форматирования ресурса расходников
 │       ├── handler.go       # Роутер текстовых команд и обработка CallbackQuery
 │       ├── menus.go         # Инлайн-клавиатуры меню (Робот, Станция, Настройки)
 │       ├── wizard.go        # Сессии и шаги интерактивного визарда уборки
@@ -63,11 +67,13 @@
 |---|---|---|---|
 | `BOT_TOKEN` | **Да** | — | Токен Telegram-бота от `@BotFather` |
 | `CHAT_ID` | **Да** | — | ID чата владельца (доступ разрешён только этому ID) |
+| `BOT_LANG` | Нет | `ru` | Язык интерфейса по умолчанию (`ru`, `en`, `de`, `zh`) |
 | `VALETUDO_BASE_URL` | Нет | `http://127.0.0.1/api/v2/robot` | Базовый URL API Valetudo |
 | `TG_API_BASE` | Нет | `https://api.telegram.org` | Базовый URL Telegram API (или локальный bot api сервер) |
 | `DND_ENABLED` | Нет | `true` | Включен ли ночной тихий режим |
 | `DND_START_HOUR` | Нет | `23` | Час начала тихого режима (0–23) |
 | `DND_END_HOUR` | Нет | `8` | Час окончания тихого режима (0–23) |
+| `ROOM_ALIASES` | Нет | `{}` | JSON-словарь алиасов комнат (например, `{"Kitchen":"Кухня"}`) |
 
 ---
 

@@ -2,7 +2,6 @@ package bot
 
 import (
 	"context"
-	"fmt"
 	"time"
 )
 
@@ -62,18 +61,12 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		}
 
 		if currentStatus == "error" && (lastStatus != "error" || currentErrorFlag != lastErrorFlag) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, fmt.Sprintf("🚨 <b>Внимание! Ошибка робота:</b>\nСтатус: <code>%s</code> | Код: <code>%s</code>", currentStatus, currentErrorFlag), b.cfg.IsDNDActive(), nil)
+			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("watcher.err_robot", currentStatus, currentErrorFlag), b.cfg.IsDNDActive(), nil)
 		}
 
 		if (lastStatus == "cleaning" || lastStatus == "returning") && currentStatus == "docked" {
 			lastMin, lastSec, lastArea := b.val.GetCurrentSessionStats()
-			msg := fmt.Sprintf(
-				"🏁 <b>Уборка завершена!</b>\n"+
-					"Робот успешно вернулся на станцию.\n\n"+
-					"⏱ <b>Время:</b> %d мин %d сек\n"+
-					"📐 <b>Площадь:</b> %.1f м²",
-				lastMin, lastSec, lastArea,
-			)
+			msg := b.t("watcher.cleaning_finished", lastMin, lastSec, lastArea)
 
 			mapReader, err := b.val.GetMapReader()
 			if err != nil {
@@ -85,10 +78,10 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		}
 
 		if currentCleanWater != "ok" && lastCleanWater == "ok" {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "🚰 <b>Док-станция: закончилась чистая вода!</b>\nПожалуйста, заполните бак.", b.cfg.IsDNDActive(), nil)
+			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("watcher.clean_water_low"), b.cfg.IsDNDActive(), nil)
 		}
 		if currentDirtyWater != "ok" && lastDirtyWater == "ok" {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "☣️ <b>Док-станция: бак грязной воды полон!</b>\nПожалуйста, слейте сточную воду.", b.cfg.IsDNDActive(), nil)
+			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("watcher.dirty_water_full"), b.cfg.IsDNDActive(), nil)
 		}
 
 		lastStatus = currentStatus

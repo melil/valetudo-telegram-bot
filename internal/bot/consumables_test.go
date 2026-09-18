@@ -123,6 +123,11 @@ func TestGetConsumablesDisplay(t *testing.T) {
 }
 
 func TestFormatRemainingTime(t *testing.T) {
+	cfg := &config.Config{RoomAliases: make(map[string]string), DefaultLang: "ru"}
+	tg := telegram.NewClient("fake", "http://fake", 10)
+	val := valetudo.NewClient("http://fake", time.Second)
+	b := New(cfg, tg, val)
+
 	cases := []struct {
 		mins     int
 		expected string
@@ -137,9 +142,18 @@ func TestFormatRemainingTime(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := formatRemainingTime(c.mins)
+		got := b.formatRemainingTime(c.mins)
 		if got != c.expected {
 			t.Errorf("mins %d: expected '%s', got '%s'", c.mins, c.expected, got)
 		}
+	}
+
+	// Test English formatting
+	b.SetLang("en")
+	if got := b.formatRemainingTime(14400); got != "240 h (10 d 0 h)" {
+		t.Errorf("expected EN '240 h (10 d 0 h)', got '%s'", got)
+	}
+	if got := b.formatRemainingTime(0); got != "depleted (0 min)" {
+		t.Errorf("expected EN 'depleted (0 min)', got '%s'", got)
 	}
 }

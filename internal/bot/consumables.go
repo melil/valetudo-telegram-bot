@@ -21,49 +21,49 @@ type ConsumableDisplayInfo struct {
 	IsMinutes          bool
 }
 
-func getConsumableMeta(cType, subType string) (name string, shortName string, icon string) {
+func (b *Bot) getConsumableMeta(cType, subType string) (name string, shortName string, icon string) {
 	switch cType {
 	case "brush":
 		switch subType {
 		case "main":
-			return "Основная щетка", "Осн. щетка", "🌀"
+			return b.t("consumables.main_brush"), b.t("consumables.main_brush_short"), "🌀"
 		case "side_right":
-			return "Боковая щетка", "Бок. щетка", "🪥"
+			return b.t("consumables.side_brush"), b.t("consumables.side_brush_short"), "🪥"
 		case "side_left":
-			return "Левая боковая щетка", "Лев. щетка", "🪥"
+			return b.t("consumables.side_brush_left"), b.t("consumables.side_brush_left_short"), "🪥"
 		default:
-			return "Щетка (" + subType + ")", "Щетка", "🧹"
+			return b.t("consumables.brush_generic", subType), b.t("consumables.main_brush_short"), "🧹"
 		}
 	case "filter":
 		switch subType {
 		case "main":
-			return "HEPA-фильтр", "HEPA-фильтр", "💨"
+			return b.t("consumables.hepa_filter"), b.t("consumables.hepa_filter_short"), "💨"
 		default:
-			return "Фильтр (" + subType + ")", "Фильтр", "💨"
+			return b.t("consumables.filter_generic", subType), b.t("consumables.hepa_filter_short"), "💨"
 		}
 	case "cleaning":
 		switch subType {
 		case "sensor":
-			return "Очистка датчиков", "Датчики", "👁"
+			return b.t("consumables.sensor_cleaning"), b.t("consumables.sensor_cleaning_short"), "👁"
 		default:
-			return "Очистка (" + subType + ")", "Очистка", "🧼"
+			return b.t("consumables.cleaning_generic", subType), b.t("consumables.sensor_cleaning_short"), "🧼"
 		}
 	case "mop":
 		switch subType {
 		case "main":
-			return "Тряпки швабры", "Швабры", "💧"
+			return b.t("consumables.mop_pads"), b.t("consumables.mop_pads_short"), "💧"
 		case "dock":
-			return "Очистка поддона станции", "Поддон", "🧼"
+			return b.t("consumables.dock_tray"), b.t("consumables.dock_tray_short"), "🧼"
 		default:
-			return "Швабра (" + subType + ")", "Швабра", "💧"
+			return b.t("consumables.mop_generic", subType), b.t("consumables.mop_pads_short"), "💧"
 		}
 	case "detergent":
-		return "Моющее средство", "Моющее", "🧴"
+		return b.t("consumables.detergent"), b.t("consumables.detergent_short"), "🧴"
 	case "bin":
 		if subType == "dock" {
-			return "Мешок станции", "Мешок", "🗑"
+			return b.t("consumables.dustbag"), b.t("consumables.dustbag_short"), "🗑"
 		}
-		return "Контейнер (" + subType + ")", "Контейнер", "🗑"
+		return b.t("consumables.bin_generic", subType), b.t("consumables.dustbag_short"), "🗑"
 	default:
 		title := strings.Title(cType)
 		if subType != "" && subType != "none" && subType != "all" {
@@ -73,9 +73,9 @@ func getConsumableMeta(cType, subType string) (name string, shortName string, ic
 	}
 }
 
-func formatRemainingTime(remMin int) string {
+func (b *Bot) formatRemainingTime(remMin int) string {
 	if remMin <= 0 {
-		return "исчерпан (0 мин)"
+		return b.t("consumables.depleted_time")
 	}
 	hours := remMin / 60
 	mins := remMin % 60
@@ -83,15 +83,15 @@ func formatRemainingTime(remMin int) string {
 	hoursInDay := hours % 24
 
 	if days > 0 {
-		return fmt.Sprintf("%d ч (%d д %d ч)", hours, days, hoursInDay)
+		return b.t("consumables.time_days_hours", hours, days, hoursInDay)
 	}
 	if hours > 0 {
 		if mins > 0 {
-			return fmt.Sprintf("%d ч %d мин", hours, mins)
+			return b.t("consumables.time_hours_mins", hours, mins)
 		}
-		return fmt.Sprintf("%d ч", hours)
+		return b.t("consumables.time_hours", hours)
 	}
-	return fmt.Sprintf("%d мин", mins)
+	return b.t("consumables.time_mins", mins)
 }
 
 func (b *Bot) getConsumablesDisplay() ([]ConsumableDisplayInfo, error) {
@@ -121,7 +121,7 @@ func (b *Bot) getConsumablesDisplay() ([]ConsumableDisplayInfo, error) {
 
 	var result []ConsumableDisplayInfo
 	for _, item := range items {
-		name, shortName, icon := getConsumableMeta(item.Type, item.SubType)
+		name, shortName, icon := b.getConsumableMeta(item.Type, item.SubType)
 		key := item.Type + "/" + item.SubType
 
 		info := ConsumableDisplayInfo{
@@ -153,7 +153,7 @@ func (b *Bot) getConsumablesDisplay() ([]ConsumableDisplayInfo, error) {
 
 			info.RemainingH = remMin / 60
 			info.MaxH = maxMin / 60
-			info.RemainingFormatted = formatRemainingTime(remMin)
+			info.RemainingFormatted = b.formatRemainingTime(remMin)
 			info.IsDepleted = (remMin <= 0)
 
 			if remMin <= 0 {

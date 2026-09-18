@@ -25,10 +25,10 @@ type WizardSession struct {
 func (b *Bot) getRooms() ([]RoomInfo, error) {
 	segments, err := b.val.GetSegments()
 	if err != nil {
-		return nil, fmt.Errorf("ошибка связи с Valetudo API: %w", err)
+		return nil, fmt.Errorf("%s: %w", b.t("rooms.err_get", ""), err)
 	}
 	if len(segments) == 0 {
-		return nil, fmt.Errorf("пылесос не вернул список комнат (проверьте разметку карты в Valetudo)")
+		return nil, fmt.Errorf("%s", b.t("rooms.empty"))
 	}
 
 	var rooms []RoomInfo
@@ -40,7 +40,7 @@ func (b *Bot) getRooms() ([]RoomInfo, error) {
 			name = alias
 		}
 		if name == "" {
-			name = "Комната " + s.ID
+			name = fmt.Sprintf(b.t("wizard.room_default"), s.ID)
 		}
 		rooms = append(rooms, RoomInfo{ID: s.ID, Name: name})
 	}
@@ -59,7 +59,7 @@ func (b *Bot) getRooms() ([]RoomInfo, error) {
 func (b *Bot) startCleaningWizard() {
 	rooms, err := b.getRooms()
 	if err != nil || len(rooms) == 0 {
-		errMsg := "⚠️ Не удалось получить список комнат от пылесоса."
+		errMsg := b.t("wizard.err_get_rooms")
 		if err != nil {
 			errMsg += "\n" + err.Error()
 		}
@@ -93,15 +93,15 @@ func (b *Bot) startCleaningWizard() {
 }
 
 func (b *Bot) renderWizardStep1() (string, *telegram.InlineKeyboardMarkup) {
-	text := "🪄 <b>Шаг 1 из 3: Выберите тип уборки</b>\nКак будем убирать выбранные зоны?"
+	text := b.t("wizard.step1_title")
 	modes := []struct {
 		ID   string
 		Name string
 	}{
-		{"vacuum_and_mop", "🌪 Сухая + Влажная (одновременно)"},
-		{"vacuum_then_mop", "🔄 Сначала сухая, затем влажная"},
-		{"vacuum", "💨 Только сухая (пылесос)"},
-		{"mop", "💧 Только влажная (швабры)"},
+		{"vacuum_and_mop", b.t("modes.wizard_vacuum_and_mop")},
+		{"vacuum_then_mop", b.t("modes.wizard_vacuum_then_mop")},
+		{"vacuum", b.t("modes.wizard_vacuum")},
+		{"mop", b.t("modes.wizard_mop")},
 	}
 
 	var rows [][]telegram.InlineKeyboardButton
@@ -112,13 +112,13 @@ func (b *Bot) renderWizardStep1() (string, *telegram.InlineKeyboardMarkup) {
 		}
 		rows = append(rows, []telegram.InlineKeyboardButton{btn})
 	}
-	rows = append(rows, []telegram.InlineKeyboardButton{{Text: "❌ Отмена", CallbackData: "wiz_cancel"}})
+	rows = append(rows, []telegram.InlineKeyboardButton{{Text: b.t("wizard.btn_cancel"), CallbackData: "wiz_cancel"}})
 
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
 func (b *Bot) renderWizardStep2(ws *WizardSession) (string, *telegram.InlineKeyboardMarkup) {
-	text := fmt.Sprintf("🪄 <b>Шаг 2 из 3: Выберите комнаты</b>\nРежим: <code>%s</code>\n\n<i>Отметьте одну или несколько комнат и нажмите «Далее»:</i>", formatModeTitle(ws.Mode))
+	text := fmt.Sprintf(b.t("wizard.step2_title"), b.formatModeTitle(ws.Mode))
 
 	var rows [][]telegram.InlineKeyboardButton
 	allSelected := len(ws.Rooms) > 0
@@ -141,17 +141,17 @@ func (b *Bot) renderWizardStep2(ws *WizardSession) (string, *telegram.InlineKeyb
 	// Кнопка быстрого выбора всех / сброса
 	var quickRow []telegram.InlineKeyboardButton
 	if allSelected {
-		quickRow = append(quickRow, telegram.InlineKeyboardButton{Text: "◻️ Снять все", CallbackData: "wiz_select_none"})
+		quickRow = append(quickRow, telegram.InlineKeyboardButton{Text: b.t("wizard.btn_select_none"), CallbackData: "wiz_select_none"})
 	} else {
-		quickRow = append(quickRow, telegram.InlineKeyboardButton{Text: "☑️ Выбрать все", CallbackData: "wiz_select_all"})
+		quickRow = append(quickRow, telegram.InlineKeyboardButton{Text: b.t("wizard.btn_select_all"), CallbackData: "wiz_select_all"})
 	}
 	rows = append(rows, quickRow)
 
 	var controlRow []telegram.InlineKeyboardButton
 	if hasSelected {
-		controlRow = append(controlRow, telegram.InlineKeyboardButton{Text: "Далее ➡️", CallbackData: "wiz_to_step3"})
+		controlRow = append(controlRow, telegram.InlineKeyboardButton{Text: b.t("wizard.btn_next"), CallbackData: "wiz_to_step3"})
 	}
-	controlRow = append(controlRow, telegram.InlineKeyboardButton{Text: "❌ Отмена", CallbackData: "wiz_cancel"})
+	controlRow = append(controlRow, telegram.InlineKeyboardButton{Text: b.t("wizard.btn_cancel"), CallbackData: "wiz_cancel"})
 	rows = append(rows, controlRow)
 
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
@@ -166,25 +166,22 @@ func (b *Bot) renderWizardStep3(ws *WizardSession) (string, *telegram.InlineKeyb
 	}
 
 	text := fmt.Sprintf(
-		"🪄 <b>Шаг 3 из 3: Количество проходов</b>\n\n"+
-			"• <b>Режим:</b> <code>%s</code>\n"+
-			"• <b>Зоны:</b> %s\n\n"+
-			"Сколько раз повторить уборку выбранных зон?",
-		formatModeTitle(ws.Mode), strings.Join(roomNames, ", "),
+		b.t("wizard.step3_title"),
+		b.formatModeTitle(ws.Mode), strings.Join(roomNames, ", "),
 	)
 
 	rows := [][]telegram.InlineKeyboardButton{
 		{
-			{Text: "1️⃣ 1 проход (1x)", CallbackData: "wiz_iter:1"},
-			{Text: "2️⃣ 2 прохода (2x)", CallbackData: "wiz_iter:2"},
+			{Text: b.t("wizard.pass_1"), CallbackData: "wiz_iter:1"},
+			{Text: b.t("wizard.pass_2"), CallbackData: "wiz_iter:2"},
 		},
 		{
-			{Text: "3️⃣ 3 прохода (3x)", CallbackData: "wiz_iter:3"},
-			{Text: "4️⃣ 4 прохода (4x)", CallbackData: "wiz_iter:4"},
+			{Text: b.t("wizard.pass_3"), CallbackData: "wiz_iter:3"},
+			{Text: b.t("wizard.pass_4"), CallbackData: "wiz_iter:4"},
 		},
 		{
-			{Text: "⬅️ Назад к комнатам", CallbackData: "wiz_back_to_step2"},
-			{Text: "❌ Отмена", CallbackData: "wiz_cancel"},
+			{Text: b.t("wizard.btn_back_to_rooms"), CallbackData: "wiz_back_to_step2"},
+			{Text: b.t("wizard.btn_cancel"), CallbackData: "wiz_cancel"},
 		},
 	}
 
@@ -202,7 +199,7 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 	b.wizardMu.Unlock()
 
 	if !exists || ws == nil {
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "⚠️ Сессия настройки устарела. Нажмите кнопку <b>🪄 Старт уборки</b> заново.", nil)
+		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("wizard.session_expired"), nil)
 		return true
 	}
 
@@ -211,7 +208,7 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 		b.wizardMu.Lock()
 		delete(b.activeWizards, b.cfg.AllowedChatID)
 		b.wizardMu.Unlock()
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "❌ Настройка уборки отменена.", nil)
+		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("wizard.cancelled"), nil)
 
 	case strings.HasPrefix(data, "wiz_mode:"):
 		mode := strings.TrimPrefix(data, "wiz_mode:")
@@ -267,23 +264,20 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 		b.wizardMu.Unlock()
 
 		if err := b.val.SetOperationMode(ws.Mode); err != nil {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "❌ Ошибка установки режима: "+err.Error(), nil)
+			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, fmt.Sprintf(b.t("wizard.err_mode"), err.Error()), nil)
 			return true
 		}
 
 		if err := b.val.CleanSegments(targetIDs, ws.Iterations); err != nil {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, "❌ Ошибка старта сегментов: "+err.Error(), nil)
+			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, fmt.Sprintf(b.t("wizard.err_start_segments"), err.Error()), nil)
 			return true
 		}
 
 		successMsg := fmt.Sprintf(
-			"🚀 <b>Уборка запущена!</b>\n\n"+
-				"• <b>Режим:</b> <code>%s</code>\n"+
-				"• <b>Комнаты:</b> %s\n"+
-				"• <b>Проходов:</b> %d",
-			formatModeTitle(ws.Mode), strings.Join(targetNames, ", "), ws.Iterations,
+			b.t("wizard.started_title"),
+			b.formatModeTitle(ws.Mode), strings.Join(targetNames, ", "), ws.Iterations,
 		)
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: "🤖 Открыть меню робота", CallbackData: "menu_robot"}}}}
+		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}}}}
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, successMsg, markup)
 	}
 

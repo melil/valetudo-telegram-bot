@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"tgbot/internal/config"
+	"tgbot/internal/i18n"
 	"tgbot/internal/telegram"
 	"tgbot/internal/valetudo"
 )
@@ -15,6 +16,9 @@ type Bot struct {
 	cfg *config.Config
 	tg  *telegram.Client
 	val *valetudo.Client
+
+	langMu sync.RWMutex
+	lang   i18n.Locale
 
 	wizardMu      sync.Mutex
 	activeWizards map[int64]*WizardSession
@@ -25,8 +29,25 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client) *Bot {
 		cfg:           cfg,
 		tg:            tg,
 		val:           val,
+		lang:          i18n.NormalizeLocale(cfg.DefaultLang),
 		activeWizards: make(map[int64]*WizardSession),
 	}
+}
+
+func (b *Bot) GetLang() i18n.Locale {
+	b.langMu.RLock()
+	defer b.langMu.RUnlock()
+	return b.lang
+}
+
+func (b *Bot) SetLang(loc i18n.Locale) {
+	b.langMu.Lock()
+	defer b.langMu.Unlock()
+	b.lang = loc
+}
+
+func (b *Bot) t(key string, args ...any) string {
+	return i18n.T(b.GetLang(), key, args...)
 }
 
 func (b *Bot) Run(ctx context.Context) error {

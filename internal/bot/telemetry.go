@@ -20,16 +20,16 @@ func renderProgressBar(percent int) string {
 	return strings.Repeat("█", filled) + strings.Repeat("░", empty)
 }
 
-func formatModeTitle(mode string) string {
+func (b *Bot) formatModeTitle(mode string) string {
 	switch mode {
 	case "vacuum":
-		return "Только сухая"
+		return b.t("modes.vacuum")
 	case "mop":
-		return "Только влажная"
+		return b.t("modes.mop")
 	case "vacuum_and_mop":
-		return "Вместе (сухая + влажная)"
+		return b.t("modes.vacuum_and_mop")
 	case "vacuum_then_mop":
-		return "Сначала сухая, затем влажная"
+		return b.t("modes.vacuum_then_mop")
 	default:
 		return mode
 	}
@@ -45,15 +45,15 @@ func formatDockSensor(val string) string {
 func getSystemUptime() string {
 	data, err := os.ReadFile("/proc/uptime")
 	if err != nil {
-		return "неизвестно"
+		return "unknown"
 	}
 	fields := strings.Fields(string(data))
 	if len(fields) == 0 {
-		return "неизвестно"
+		return "unknown"
 	}
 	sec, err := strconv.ParseFloat(fields[0], 64)
 	if err != nil {
-		return "неизвестно"
+		return "unknown"
 	}
 	d := time.Duration(sec) * time.Second
 	return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes())%60)
@@ -61,7 +61,7 @@ func getSystemUptime() string {
 
 func (b *Bot) buildTelemetryReport() string {
 	batLevel := "?"
-	robotStatus := "на базе"
+	robotStatus := b.t("telemetry.status_docked")
 	dockAction := ""
 	currentMode := "vacuum_and_mop"
 
@@ -77,7 +77,11 @@ func (b *Bot) buildTelemetryReport() string {
 				batLevel = strconv.Itoa(attr.Level)
 			case "StatusStateAttribute":
 				if val, ok := attr.Value.(string); ok {
-					robotStatus = val
+					if val == "docked" {
+						robotStatus = b.t("telemetry.status_docked")
+					} else {
+						robotStatus = val
+					}
 				}
 			case "DockStatusStateAttribute":
 				if val, ok := attr.Value.(string); ok && val != "idle" && val != "none" {
@@ -115,15 +119,18 @@ func (b *Bot) buildTelemetryReport() string {
 			}
 		}
 	} else {
-		consLines = []string{"• Данные о расходниках недоступны"}
+		consLines = []string{b.t("telemetry.consumables_unavailable")}
 	}
 
 	uptimeStr := getSystemUptime()
+	if uptimeStr == "unknown" {
+		uptimeStr = b.t("telemetry.status_unknown")
+	}
 
 	statusExtra := ""
 	if dockAction != "" {
 		if dockAction == "drying" {
-			statusExtra = " (сушка швабр)"
+			statusExtra = b.t("telemetry.drying_mops")
 		} else {
 			statusExtra = fmt.Sprintf(" (%s)", dockAction)
 		}
@@ -132,28 +139,44 @@ func (b *Bot) buildTelemetryReport() string {
 	lastMin, lastSec, lastArea := b.val.GetCurrentSessionStats()
 	totHours, totCount, totArea := b.val.GetTotalStats()
 
+	lastTimeFormatted := fmt.Sprintf(b.t("telemetry.time_format"), lastMin, lastSec)
+
 	return fmt.Sprintf(
-		"🏎 <b>БОРТОВОЙ ЖУРНАЛ DREAME X30 PRO</b>\n\n"+
-			"🔋 <b>Силовая установка:</b>\n"+
-			"• Заряд АКБ: <b>%s%%</b>\n"+
-			"• Статус: <b>%s%s</b>\n"+
-			"• Режим уборки: <b>%s</b>\n"+
-			"• Аптайм Linux: <b>%s</b>\n\n"+
-			"📈 <b>Сессии и налет:</b>\n"+
-			"• Крайняя сессия: <b>%d мин %d с</b> | <b>%.1f м²</b>\n"+
-			"• Всего выездов: <b>%d</b>\n"+
-			"• Суммарный налет: <b>%d ч</b> (%.0f м²)\n\n"+
-			"💧 <b>Резервуары станции:</b>\n"+
-			"• Чистая вода: <b>%s</b>\n"+
-			"• Грязная вода: <b>%s</b>\n"+
-			"• Моющее средство: <b>%s</b>\n"+
-			"• Пылесборник: <b>%s</b>\n\n"+
-			"⚙️ <b>Остаточный ресурс узлов:</b>\n"+
+		"%s\n\n"+
+			"%s\n"+
+			"• %s: <b>%s%%</b>\n"+
+			"• %s: <b>%s%s</b>\n"+
+			"• %s: <b>%s</b>\n"+
+			"• %s: <b>%s</b>\n\n"+
+			"%s\n"+
+			"• %s: <b>%s</b> | <b>%.1f м²</b>\n"+
+			"• %s: <b>%d</b>\n"+
+			"• %s: <b>%d ч</b> (%.0f м²)\n\n"+
+			"%s\n"+
+			"• %s: <b>%s</b>\n"+
+			"• %s: <b>%s</b>\n"+
+			"• %s: <b>%s</b>\n"+
+			"• %s: <b>%s</b>\n\n"+
+			"%s\n"+
 			"%s\n\n"+
-			"📊 <b>Статус:</b> Все системы в норме",
-		batLevel, robotStatus, statusExtra, formatModeTitle(currentMode), uptimeStr,
-		lastMin, lastSec, lastArea, totCount, totHours, totArea,
-		formatDockSensor(cleanWater), formatDockSensor(dirtyWater), formatDockSensor(detergent), formatDockSensor(dustbag),
+			"%s",
+		b.t("telemetry.header"),
+		b.t("telemetry.sec_powertrain"),
+		b.t("telemetry.lbl_battery"), batLevel,
+		b.t("telemetry.lbl_status"), robotStatus, statusExtra,
+		b.t("telemetry.lbl_mode"), b.formatModeTitle(currentMode),
+		b.t("telemetry.lbl_uptime"), uptimeStr,
+		b.t("telemetry.sec_sessions"),
+		b.t("telemetry.lbl_last_session"), lastTimeFormatted, lastArea,
+		b.t("telemetry.lbl_total_runs"), totCount,
+		b.t("telemetry.lbl_total_stats"), totHours, totArea,
+		b.t("telemetry.sec_dock_tanks"),
+		b.t("telemetry.lbl_clean_water"), formatDockSensor(cleanWater),
+		b.t("telemetry.lbl_dirty_water"), formatDockSensor(dirtyWater),
+		b.t("telemetry.lbl_detergent"), formatDockSensor(detergent),
+		b.t("telemetry.lbl_dustbag"), formatDockSensor(dustbag),
+		b.t("telemetry.sec_consumables"),
 		strings.Join(consLines, "\n"),
+		b.t("telemetry.sec_overall"),
 	)
 }

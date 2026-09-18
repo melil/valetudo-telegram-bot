@@ -21,6 +21,8 @@ type Config struct {
 	DNDStartHour int
 	DNDEndHour   int
 
+	DefaultLang string
+
 	RoomAliases map[string]string
 }
 
@@ -48,6 +50,11 @@ func Load() (*Config, error) {
 	}
 	tgBase = strings.TrimRight(tgBase, "/")
 
+	lang := os.Getenv("BOT_LANG")
+	if lang == "" {
+		lang = "ru"
+	}
+
 	cfg := &Config{
 		ValetudoBaseURL: valetudoURL,
 		BotToken:        token,
@@ -57,7 +64,9 @@ func Load() (*Config, error) {
 		WatcherInterval: 12 * time.Second,
 		DNDEnabled:      true,
 		DNDStartHour:    23,
-		RoomAliases: make(map[string]string),
+		DNDEndHour:      8,
+		DefaultLang:     lang,
+		RoomAliases:     make(map[string]string),
 	}
 
 	if ra := os.Getenv("ROOM_ALIASES"); ra != "" {
