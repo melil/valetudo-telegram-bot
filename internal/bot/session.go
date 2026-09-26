@@ -192,7 +192,21 @@ func (b *Bot) formatReportAlert(r *CleaningReport) string {
 
 func (b *Bot) formatReportCaption(r *CleaningReport) string {
 	if r == nil {
-		return b.t("watcher.cleaning_finished_title")
+		min, sec, areaM2 := b.val.GetCurrentSessionStats()
+		if min > 0 || sec > 0 || areaM2 > 0 {
+			return fmt.Sprintf(
+				"🏁 <b>%s</b>\n%s\n\n⏱ <b>%s:</b> %d %s %d %s\n📐 <b>%s:</b> %.1f м²",
+				b.t("watcher.cleaning_finished_title"),
+				b.t("watcher.cleaning_finished_subtitle"),
+				b.t("report.lbl_time"), min, b.t("report.min"), sec, b.t("report.sec"),
+				b.t("report.lbl_area"), areaM2,
+			)
+		}
+		return fmt.Sprintf(
+			"🏁 <b>%s</b>\n%s",
+			b.t("watcher.cleaning_finished_title"),
+			b.t("watcher.cleaning_finished_subtitle"),
+		)
 	}
 
 	return fmt.Sprintf(

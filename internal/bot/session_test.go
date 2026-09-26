@@ -107,3 +107,14 @@ func TestSessionFallbackElapsed(t *testing.T) {
 		t.Errorf("expected 'Вся квартира' for empty rooms, got '%s'", report.Rooms)
 	}
 }
+
+func TestFormatReportCaption_NilReport(t *testing.T) {
+	cfg := &config.Config{DefaultLang: "ru"}
+	b := New(cfg, telegram.NewClient("token", "", 30), valetudo.NewClient("http://localhost:8080/api/v2/robot", time.Second))
+
+	caption := b.formatReportCaption(nil)
+	if !strings.Contains(caption, "Уборка завершена!") {
+		t.Errorf("expected caption to contain title, got: %s", caption)
+	}
+}
+

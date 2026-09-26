@@ -356,5 +356,12 @@ func (c *Client) GetMapReader() (io.ReadCloser, error) {
 		resp.Body.Close()
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
+
+	ct := resp.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "image/") {
+		resp.Body.Close()
+		return nil, fmt.Errorf("map endpoint returned non-image content-type: %s", ct)
+	}
+
 	return resp.Body, nil
 }

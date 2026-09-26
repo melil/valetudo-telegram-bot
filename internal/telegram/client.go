@@ -203,6 +203,13 @@ func (c *Client) SendPhoto(chatID int64, photoData io.Reader, caption string, di
 		return err
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
+
+	var res BaseResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return err
+	}
+	if !res.OK {
+		return fmt.Errorf("telegram sendPhoto error: %s", res.Description)
+	}
 	return nil
 }
