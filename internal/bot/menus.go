@@ -174,6 +174,9 @@ func (b *Bot) sendRobotMenu() {
 	rows = append(rows, statusRow)
 
 	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: b.t("robot_menu.btn_resources"), CallbackData: "cmd_resources"},
+	})
+	rows = append(rows, []telegram.InlineKeyboardButton{
 		{Text: b.t("robot_menu.btn_settings"), CallbackData: "menu_settings"},
 	})
 	rows = append(rows, []telegram.InlineKeyboardButton{

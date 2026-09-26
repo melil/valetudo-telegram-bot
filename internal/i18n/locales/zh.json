@@ -26,6 +26,7 @@
     "btn_home": "🏠 回充",
     "btn_telemetry": "🏎 运行日志",
     "btn_consumables": "🧹 耗材状态",
+    "btn_resources": "📊 系统资源",
     "btn_settings": "⚙️ 设置",
     "btn_back": "⬅️ 返回机器人菜单",
     "started": "🚀 <b>已启动全屋清扫。</b>",
@@ -223,5 +224,26 @@
     "manual_control": "手动控制",
     "error": "故障",
     "unknown": "未知"
+  },
+  "resources": {
+    "title": "📊 <b>机器人系统资源占用</b>",
+    "sec_bot": "🤖 <b>Bot 进程 (Go 运行时)：</b>",
+    "lbl_heap": "堆内存占用 (Alloc)",
+    "lbl_sys_mem": "系统分配内存 (Sys)",
+    "lbl_objects": "活跃堆对象数",
+    "lbl_goroutines": "协程数 (Goroutines)",
+    "lbl_gc": "垃圾回收 (GC)",
+    "lbl_bot_uptime": "Bot 运行时间",
+    "lbl_go_version": "运行环境版本",
+    "sec_host": "💻 <b>机器人宿主系统 (Linux)：</b>",
+    "lbl_host_mem": "主机物理内存",
+    "lbl_load_avg": "CPU 负载 (LA)",
+    "lbl_disk": "闪存空间 (%s)",
+    "lbl_temp": "SoC 核心温度",
+    "lbl_os_uptime": "系统运行时间",
+    "btn_refresh": "🔄 刷新",
+    "na": "暂无数据",
+    "gc_stat": "%d 次 (停顿 %s)",
+    "disk_usage": "<b>%s</b> 可用 / 共 %s (%d%%)"
   }
 }

@@ -216,6 +216,9 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 		}
 		b.sendConsumablesMenu()
 
+	case cleanText == "/resources" || cleanText == "/res" || i18n.Matches(cleanText, "robot_menu.btn_resources"):
+		b.sendResourcesMenu()
+
 	case cleanText == "/reload_caps":
 		if err := b.LoadCapabilities(); err != nil {
 			markup := &telegram.InlineKeyboardMarkup{
@@ -373,6 +376,9 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		return
 	case "cmd_consumables":
 		b.sendConsumablesMenu()
+		return
+	case "cmd_resources", "cmd_resources_refresh":
+		b.sendResourcesMenu()
 		return
 	}
 

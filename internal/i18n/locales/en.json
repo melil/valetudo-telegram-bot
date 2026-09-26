@@ -26,6 +26,7 @@
     "btn_home": "🏠 Return Home",
     "btn_telemetry": "🏎 Telemetry",
     "btn_consumables": "🧹 Consumables",
+    "btn_resources": "📊 Resources",
     "btn_settings": "⚙️ Settings",
     "btn_back": "⬅️ Back to Robot",
     "started": "🚀 <b>Full cleaning started.</b>",
@@ -223,5 +224,26 @@
     "manual_control": "manual control",
     "error": "error",
     "unknown": "unknown"
+  },
+  "resources": {
+    "title": "📊 <b>ROBOT SYSTEM RESOURCES</b>",
+    "sec_bot": "🤖 <b>Bot Process (Go runtime):</b>",
+    "lbl_heap": "Heap Memory (Alloc)",
+    "lbl_sys_mem": "OS Memory (Sys)",
+    "lbl_objects": "Heap Objects",
+    "lbl_goroutines": "Goroutines",
+    "lbl_gc": "Garbage Collector (GC)",
+    "lbl_bot_uptime": "Bot Uptime",
+    "lbl_go_version": "Runtime Version",
+    "sec_host": "💻 <b>Robot Host System (Linux):</b>",
+    "lbl_host_mem": "Host RAM",
+    "lbl_load_avg": "CPU Load (LA)",
+    "lbl_disk": "Storage (%s)",
+    "lbl_temp": "SoC Temperature",
+    "lbl_os_uptime": "OS Uptime",
+    "btn_refresh": "🔄 Refresh",
+    "na": "N/A",
+    "gc_stat": "%d runs (pause %s)",
+    "disk_usage": "<b>%s</b> free of %s (%d%%)"
   }
 }

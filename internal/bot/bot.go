@@ -37,6 +37,8 @@ type Bot struct {
 	sessionMu  sync.RWMutex
 	session    CleaningSession
 	lastReport *CleaningReport
+
+	startTime time.Time
 }
 
 func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client) *Bot {
@@ -49,6 +51,7 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client) *Bot {
 		lastFlag:      "none",
 		lang:          i18n.NormalizeLocale(cfg.DefaultLang),
 		activeWizards: make(map[int64]*WizardSession),
+		startTime:     time.Now(),
 	}
 }
 

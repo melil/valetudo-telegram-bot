@@ -26,6 +26,7 @@
     "btn_home": "🏠 Домой",
     "btn_telemetry": "🏎 Телеметрия",
     "btn_consumables": "🧹 Расходники",
+    "btn_resources": "📊 Ресурсы",
     "btn_settings": "⚙️ Настройки",
     "btn_back": "⬅️ Назад к роботу",
     "started": "🚀 <b>Запущена генеральная уборка.</b>",
@@ -223,5 +224,26 @@
     "manual_control": "ручное управление",
     "error": "ошибка",
     "unknown": "неизвестно"
+  },
+  "resources": {
+    "title": "📊 <b>СИСТЕМНЫЕ РЕСУРСЫ РОБОТА</b>",
+    "sec_bot": "🤖 <b>Процесс бота (Go runtime):</b>",
+    "lbl_heap": "Память кучи (Alloc)",
+    "lbl_sys_mem": "Память от ОС (Sys)",
+    "lbl_objects": "Объектов в куче",
+    "lbl_goroutines": "Горутины",
+    "lbl_gc": "Сборщик мусора (GC)",
+    "lbl_bot_uptime": "Аптайм бота",
+    "lbl_go_version": "Версия среды",
+    "sec_host": "💻 <b>Хост-система робота (Linux):</b>",
+    "lbl_host_mem": "ОЗУ робота",
+    "lbl_load_avg": "Нагрузка CPU (LA)",
+    "lbl_disk": "Хранилище (%s)",
+    "lbl_temp": "Температура SoC",
+    "lbl_os_uptime": "Аптайм ОС",
+    "btn_refresh": "🔄 Обновить",
+    "na": "н/д",
+    "gc_stat": "%d сборок (пауза %s)",
+    "disk_usage": "<b>%s</b> свободно из %s (%d%%)"
   }
 }
