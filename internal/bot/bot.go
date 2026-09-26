@@ -17,6 +17,9 @@ type Bot struct {
 	tg  *telegram.Client
 	val *valetudo.Client
 
+	capsMu sync.RWMutex
+	caps   *valetudo.CapabilitySet
+
 	langMu sync.RWMutex
 	lang   i18n.Locale
 
@@ -29,9 +32,32 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client) *Bot {
 		cfg:           cfg,
 		tg:            tg,
 		val:           val,
+		caps:          valetudo.NewCapabilitySet(nil),
 		lang:          i18n.NormalizeLocale(cfg.DefaultLang),
 		activeWizards: make(map[int64]*WizardSession),
 	}
+}
+
+func (b *Bot) Caps() *valetudo.CapabilitySet {
+	b.capsMu.RLock()
+	defer b.capsMu.RUnlock()
+	return b.caps
+}
+
+func (b *Bot) SetCaps(cs *valetudo.CapabilitySet) {
+	b.capsMu.Lock()
+	defer b.capsMu.Unlock()
+	b.caps = cs
+}
+
+func (b *Bot) LoadCapabilities() error {
+	rawCaps, err := b.val.GetCapabilities()
+	if err != nil {
+		return err
+	}
+	b.SetCaps(valetudo.NewCapabilitySet(rawCaps))
+	log.Printf("Загружено возможностей робота: %d (%v)", len(rawCaps), rawCaps)
+	return nil
 }
 
 func (b *Bot) GetLang() i18n.Locale {
@@ -52,6 +78,10 @@ func (b *Bot) t(key string, args ...any) string {
 
 func (b *Bot) Run(ctx context.Context) error {
 	log.Printf("Бот запущен. Слушаю сообщения для ChatID: %d\n", b.cfg.AllowedChatID)
+
+	if err := b.LoadCapabilities(); err != nil {
+		log.Printf("Внимание: не удалось загрузить возможности робота: %v", err)
+	}
 
 	// Запуск фонового мониторинга
 	go b.statusWatcher(ctx)

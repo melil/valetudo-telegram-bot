@@ -95,3 +95,43 @@ func TestGetConsumablesAndProperties(t *testing.T) {
 		t.Errorf("expected max value 18000, got %d", props.AvailableConsumables[0].MaxValue)
 	}
 }
+
+func TestGetCapabilities(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/capabilities" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`[
+			"BasicControlCapability",
+			"LocateCapability",
+			"MapSegmentationCapability",
+			"AutoEmptyDockManualTriggerCapability"
+		]`))
+	}))
+	defer ts.Close()
+
+	c := NewClient(ts.URL, 2*time.Second)
+	caps, err := c.GetCapabilities()
+	if err != nil {
+		t.Fatalf("unexpected GetCapabilities error: %v", err)
+	}
+	if len(caps) != 4 {
+		t.Fatalf("expected 4 capabilities, got %d", len(caps))
+	}
+
+	cs := NewCapabilitySet(caps)
+	if !cs.Has(CapBasicControl) {
+		t.Error("expected to have BasicControlCapability")
+	}
+	if !cs.Has(CapLocate) {
+		t.Error("expected to have LocateCapability")
+	}
+	if !cs.HasStation() {
+		t.Error("expected HasStation() to be true")
+	}
+	if cs.Has(CapFanSpeedControl) {
+		t.Error("expected FanSpeedControlCapability to be false")
+	}
+}

@@ -27,6 +27,25 @@ func NewClient(baseURL string, timeout time.Duration) *Client {
 	}
 }
 
+func (c *Client) GetCapabilities() ([]string, error) {
+	url := c.baseURL + "/capabilities"
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	var caps []string
+	if err := json.NewDecoder(resp.Body).Decode(&caps); err != nil {
+		return nil, err
+	}
+	return caps, nil
+}
+
 func (c *Client) TriggerCapabilityAction(capability string, action string) error {
 	url := c.baseURL + "/capabilities/" + capability
 	payload := fmt.Sprintf(`{"action":"%s"}`, action)

@@ -6,8 +6,10 @@
     "station": "🏠 Station",
     "rooms": "🗺 Rooms",
     "locate": "📢 Locate Robot",
-    "ready": "🕹 <b>Dreame X30 Pro Control Ready:</b>",
-    "unrecognized": "Unrecognized command. Please use the menu."
+    "full_clean": "🚀 Full Clean",
+    "ready": "🕹 <b>Robot Control Ready:</b>",
+    "unrecognized": "Unrecognized command. Please use the menu.",
+    "not_supported": "⚠️ This feature is not supported by your robot model."
   },
   "robot_menu": {
     "title": "🤖 <b>Robot Control</b>\nSelect an action:",

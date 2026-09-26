@@ -6,8 +6,10 @@
     "station": "🏠 基站",
     "rooms": "🗺 房间",
     "locate": "📢 寻找机器人",
-    "ready": "🕹 <b>追觅 Dreame X30 Pro 控制已就绪：</b>",
-    "unrecognized": "未能识别该指令，请使用菜单选项。"
+    "full_clean": "🚀 全局清扫",
+    "ready": "🕹 <b>扫地机器人控制已就绪：</b>",
+    "unrecognized": "未能识别该指令，请使用菜单选项。",
+    "not_supported": "⚠️ 您的扫地机型号不支持此功能。"
   },
   "robot_menu": {
     "title": "🤖 <b>机器人控制</b>\n请选择操作：",

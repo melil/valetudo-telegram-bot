@@ -5,16 +5,41 @@ import (
 
 	"tgbot/internal/i18n"
 	"tgbot/internal/telegram"
+	"tgbot/internal/valetudo"
 )
 
 func (b *Bot) sendRobotMenu(msgID int) {
 	text := b.t("robot_menu.title")
-	rows := [][]telegram.InlineKeyboardButton{
-		{{Text: b.t("robot_menu.btn_start"), CallbackData: "cmd_start"}},
-		{{Text: b.t("robot_menu.btn_pause"), CallbackData: "cmd_pause"}, {Text: b.t("robot_menu.btn_home"), CallbackData: "cmd_home"}},
-		{{Text: b.t("robot_menu.btn_telemetry"), CallbackData: "cmd_telemetry"}, {Text: b.t("robot_menu.btn_consumables"), CallbackData: "cmd_consumables"}},
-		{{Text: b.t("robot_menu.btn_settings"), CallbackData: "menu_settings"}},
+	caps := b.Caps()
+	var rows [][]telegram.InlineKeyboardButton
+
+	if caps.Has(valetudo.CapBasicControl) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("robot_menu.btn_start"), CallbackData: "cmd_start"},
+		})
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("robot_menu.btn_pause"), CallbackData: "cmd_pause"},
+			{Text: b.t("robot_menu.btn_home"), CallbackData: "cmd_home"},
+		})
 	}
+
+	var statusRow []telegram.InlineKeyboardButton
+	statusRow = append(statusRow, telegram.InlineKeyboardButton{
+		Text:         b.t("robot_menu.btn_telemetry"),
+		CallbackData: "cmd_telemetry",
+	})
+	if caps.Has(valetudo.CapConsumableMonitoring) {
+		statusRow = append(statusRow, telegram.InlineKeyboardButton{
+			Text:         b.t("robot_menu.btn_consumables"),
+			CallbackData: "cmd_consumables",
+		})
+	}
+	rows = append(rows, statusRow)
+
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: b.t("robot_menu.btn_settings"), CallbackData: "menu_settings"},
+	})
+
 	markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 
 	if msgID == 0 {
@@ -31,14 +56,59 @@ func (b *Bot) sendRobotMenu(msgID int) {
 }
 
 func (b *Bot) sendStationMenu(msgID int) {
-	text := b.t("station_menu.title")
-	rows := [][]telegram.InlineKeyboardButton{
-		{{Text: b.t("station_menu.btn_dock_home"), CallbackData: "cmd_station_home"}},
-		{{Text: b.t("station_menu.btn_dock_empty"), CallbackData: "dock_empty"}},
-		{{Text: b.t("station_menu.btn_dock_wash"), CallbackData: "dock_wash"}},
-		{{Text: b.t("station_menu.btn_dock_dry_start"), CallbackData: "dock_dry_start"}, {Text: b.t("station_menu.btn_dock_dry_stop"), CallbackData: "dock_dry_stop"}},
-		{{Text: b.t("station_menu.btn_wash_temp"), CallbackData: "menu_wash_temp"}, {Text: b.t("station_menu.btn_dry_time"), CallbackData: "menu_dry_time"}},
+	caps := b.Caps()
+	if !caps.HasStation() {
+		text := b.t("main_menu.not_supported")
+		if msgID == 0 {
+			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, text, b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		} else {
+			_ = b.tg.EditMessage(b.cfg.AllowedChatID, msgID, text, nil)
+		}
+		return
 	}
+
+	text := b.t("station_menu.title")
+	var rows [][]telegram.InlineKeyboardButton
+
+	if caps.Has(valetudo.CapBasicControl) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("station_menu.btn_dock_home"), CallbackData: "cmd_station_home"},
+		})
+	}
+	if caps.Has(valetudo.CapAutoEmptyDockManualTrigger) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("station_menu.btn_dock_empty"), CallbackData: "dock_empty"},
+		})
+	}
+	if caps.Has(valetudo.CapMopDockCleanManualTrigger) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("station_menu.btn_dock_wash"), CallbackData: "dock_wash"},
+		})
+	}
+	if caps.Has(valetudo.CapMopDockDryManualTrigger) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("station_menu.btn_dock_dry_start"), CallbackData: "dock_dry_start"},
+			{Text: b.t("station_menu.btn_dock_dry_stop"), CallbackData: "dock_dry_stop"},
+		})
+	}
+
+	var dockSettingsRow []telegram.InlineKeyboardButton
+	if caps.Has(valetudo.CapMopDockMopWashTemperatureControl) {
+		dockSettingsRow = append(dockSettingsRow, telegram.InlineKeyboardButton{
+			Text:         b.t("station_menu.btn_wash_temp"),
+			CallbackData: "menu_wash_temp",
+		})
+	}
+	if caps.Has(valetudo.CapMopDockMopDryingTimeControl) {
+		dockSettingsRow = append(dockSettingsRow, telegram.InlineKeyboardButton{
+			Text:         b.t("station_menu.btn_dry_time"),
+			CallbackData: "menu_dry_time",
+		})
+	}
+	if len(dockSettingsRow) > 0 {
+		rows = append(rows, dockSettingsRow)
+	}
+
 	markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 
 	if msgID == 0 {
@@ -56,14 +126,37 @@ func (b *Bot) sendStationMenu(msgID int) {
 
 func (b *Bot) getSettingsMainMenu() (string, *telegram.InlineKeyboardMarkup) {
 	text := b.t("settings_menu.title")
-	rows := [][]telegram.InlineKeyboardButton{
-		{{Text: b.t("settings_menu.btn_mode"), CallbackData: "sub_mode"}},
-		{{Text: b.t("settings_menu.btn_fan"), CallbackData: "sub_fan"}},
-		{{Text: b.t("settings_menu.btn_water"), CallbackData: "sub_water"}},
-		{{Text: b.t("settings_menu.btn_mopextend"), CallbackData: "sub_mopextend"}},
-		{{Text: b.t("settings_menu.btn_lang"), CallbackData: "sub_lang"}},
-		{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_robot"}},
+	caps := b.Caps()
+	var rows [][]telegram.InlineKeyboardButton
+
+	if caps.Has(valetudo.CapOperationModeControl) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("settings_menu.btn_mode"), CallbackData: "sub_mode"},
+		})
 	}
+	if caps.Has(valetudo.CapFanSpeedControl) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("settings_menu.btn_fan"), CallbackData: "sub_fan"},
+		})
+	}
+	if caps.Has(valetudo.CapWaterUsageControl) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("settings_menu.btn_water"), CallbackData: "sub_water"},
+		})
+	}
+	if caps.Has(valetudo.CapMopExtensionControl) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("settings_menu.btn_mopextend"), CallbackData: "sub_mopextend"},
+		})
+	}
+
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: b.t("settings_menu.btn_lang"), CallbackData: "sub_lang"},
+	})
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_robot"},
+	})
+
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
@@ -82,6 +175,16 @@ func (b *Bot) getLanguageMenu() (string, *telegram.InlineKeyboardMarkup) {
 }
 
 func (b *Bot) sendConsumablesMenu(msgID int) {
+	if !b.Caps().Has(valetudo.CapConsumableMonitoring) {
+		text := b.t("main_menu.not_supported")
+		if msgID == 0 {
+			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, text, b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		} else {
+			_ = b.tg.EditMessage(b.cfg.AllowedChatID, msgID, text, nil)
+		}
+		return
+	}
+
 	displays, err := b.getConsumablesDisplay()
 	if err != nil {
 		if msgID == 0 {

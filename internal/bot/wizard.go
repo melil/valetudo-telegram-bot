@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"tgbot/internal/telegram"
+	"tgbot/internal/valetudo"
 )
 
 type RoomInfo struct {
@@ -57,6 +58,11 @@ func (b *Bot) getRooms() ([]RoomInfo, error) {
 }
 
 func (b *Bot) startCleaningWizard() {
+	if !b.Caps().Has(valetudo.CapMapSegmentation) {
+		_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		return
+	}
+
 	rooms, err := b.getRooms()
 	if err != nil || len(rooms) == 0 {
 		errMsg := b.t("wizard.err_get_rooms")
@@ -67,15 +73,25 @@ func (b *Bot) startCleaningWizard() {
 		return
 	}
 
-	b.wizardMu.Lock()
-	b.activeWizards[b.cfg.AllowedChatID] = &WizardSession{
+	session := &WizardSession{
 		SelectedRooms: make(map[string]bool),
 		Rooms:         rooms,
 		Iterations:    1,
 	}
+
+	b.wizardMu.Lock()
+	b.activeWizards[b.cfg.AllowedChatID] = session
 	b.wizardMu.Unlock()
 
-	text, markup := b.renderWizardStep1()
+	var text string
+	var markup *telegram.InlineKeyboardMarkup
+
+	if b.Caps().Has(valetudo.CapOperationModeControl) {
+		text, markup = b.renderWizardStep1()
+	} else {
+		text, markup = b.renderWizardStep2(session)
+	}
+
 	msgID, err := b.tg.SendPayload(telegram.SendMessagePayload{
 		ChatID:              b.cfg.AllowedChatID,
 		Text:                text,
@@ -118,7 +134,12 @@ func (b *Bot) renderWizardStep1() (string, *telegram.InlineKeyboardMarkup) {
 }
 
 func (b *Bot) renderWizardStep2(ws *WizardSession) (string, *telegram.InlineKeyboardMarkup) {
-	text := fmt.Sprintf(b.t("wizard.step2_title"), b.formatModeTitle(ws.Mode))
+	var text string
+	if ws.Mode != "" {
+		text = fmt.Sprintf(b.t("wizard.step2_title"), b.formatModeTitle(ws.Mode))
+	} else {
+		text = fmt.Sprintf(b.t("wizard.step2_title"), "—")
+	}
 
 	var rows [][]telegram.InlineKeyboardButton
 	allSelected := len(ws.Rooms) > 0
@@ -165,9 +186,14 @@ func (b *Bot) renderWizardStep3(ws *WizardSession) (string, *telegram.InlineKeyb
 		}
 	}
 
+	modeTitle := "—"
+	if ws.Mode != "" {
+		modeTitle = b.formatModeTitle(ws.Mode)
+	}
+
 	text := fmt.Sprintf(
 		b.t("wizard.step3_title"),
-		b.formatModeTitle(ws.Mode), strings.Join(roomNames, ", "),
+		modeTitle, strings.Join(roomNames, ", "),
 	)
 
 	rows := [][]telegram.InlineKeyboardButton{
@@ -263,9 +289,11 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 		delete(b.activeWizards, b.cfg.AllowedChatID)
 		b.wizardMu.Unlock()
 
-		if err := b.val.SetOperationMode(ws.Mode); err != nil {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, fmt.Sprintf(b.t("wizard.err_mode"), err.Error()), nil)
-			return true
+		if ws.Mode != "" && b.Caps().Has(valetudo.CapOperationModeControl) {
+			if err := b.val.SetOperationMode(ws.Mode); err != nil {
+				_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, fmt.Sprintf(b.t("wizard.err_mode"), err.Error()), nil)
+				return true
+			}
 		}
 
 		if err := b.val.CleanSegments(targetIDs, ws.Iterations); err != nil {
@@ -273,9 +301,14 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 			return true
 		}
 
+		modeTitle := "—"
+		if ws.Mode != "" {
+			modeTitle = b.formatModeTitle(ws.Mode)
+		}
+
 		successMsg := fmt.Sprintf(
 			b.t("wizard.started_title"),
-			b.formatModeTitle(ws.Mode), strings.Join(targetNames, ", "), ws.Iterations,
+			modeTitle, strings.Join(targetNames, ", "), ws.Iterations,
 		)
 		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}}}}
 		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, successMsg, markup)

@@ -6,8 +6,10 @@
     "station": "🏠 Station",
     "rooms": "🗺 Räume",
     "locate": "📢 Roboter finden",
-    "ready": "🕹 <b>Dreame X30 Pro Steuerung bereit:</b>",
-    "unrecognized": "Befehl nicht erkannt. Bitte Menü verwenden."
+    "full_clean": "🚀 Komplettreinigung",
+    "ready": "🕹 <b>Robotersteuerung bereit:</b>",
+    "unrecognized": "Befehl nicht erkannt. Bitte Menü verwenden.",
+    "not_supported": "⚠️ Diese Funktion wird von Ihrem Robotermodell nicht unterstützt."
   },
   "robot_menu": {
     "title": "🤖 <b>Robotersteuerung</b>\nAktion auswählen:",
