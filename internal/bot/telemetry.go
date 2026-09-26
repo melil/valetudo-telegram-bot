@@ -77,11 +77,7 @@ func (b *Bot) buildTelemetryReport() string {
 				batLevel = strconv.Itoa(attr.Level)
 			case "StatusStateAttribute":
 				if val, ok := attr.Value.(string); ok {
-					if val == "docked" {
-						robotStatus = b.t("telemetry.status_docked")
-					} else {
-						robotStatus = val
-					}
+					robotStatus = b.formatStatusDisplay(val, attr.Flag)
 				}
 			case "DockStatusStateAttribute":
 				if val, ok := attr.Value.(string); ok && val != "idle" && val != "none" {

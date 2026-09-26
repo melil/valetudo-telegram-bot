@@ -111,8 +111,8 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
-		_ = b.val.TriggerAction("stop")
-		b.SetRobotStatus("idle", "none")
+		_ = b.val.TriggerAction("home")
+		b.SetRobotStatus("returning", "none")
 		b.sendMainDashboard()
 
 	case cleanText == "/pause" || i18n.Matches(cleanText, "main_menu.pause_cleaning") || i18n.Matches(cleanText, "robot_menu.btn_pause"):
@@ -342,8 +342,8 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
-		_ = b.val.TriggerAction("stop")
-		b.SetRobotStatus("idle", "none")
+		_ = b.val.TriggerAction("home")
+		b.SetRobotStatus("returning", "none")
 		b.sendMainDashboard()
 		return
 	case "cmd_home":

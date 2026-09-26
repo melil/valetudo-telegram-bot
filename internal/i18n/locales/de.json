@@ -193,5 +193,20 @@
     "cleaning_finished": "🏁 <b>Reinigung abgeschlossen!</b>\nRoboter ist erfolgreich zur Station zurückgekehrt.\n\n⏱ <b>Zeit:</b> %d Min. %d Sek.\n📐 <b>Fläche:</b> %.1f m²",
     "clean_water_low": "🚰 <b>Dockstation: Frischwasserbehälter leer!</b>\nBitte Tank auffüllen.",
     "dirty_water_full": "☣️ <b>Dockstation: Schmutzwasserbehälter voll!</b>\nBitte Tank entleeren."
+  },
+  "statuses": {
+    "docked": "auf Station",
+    "cleaning": "Reinigung",
+    "cleaning_segment": "Raumreinigung",
+    "cleaning_zone": "Zonenreinigung",
+    "cleaning_spot": "Punktreinigung",
+    "cleaning_mapping": "Kartierung",
+    "paused": "pausiert",
+    "returning": "Rückkehr zur Station",
+    "idle": "bereit",
+    "moving": "Bewegung",
+    "manual_control": "manuelle Steuerung",
+    "error": "Fehler",
+    "unknown": "unbekannt"
   }
 }

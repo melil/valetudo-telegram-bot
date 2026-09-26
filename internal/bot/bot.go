@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -76,6 +77,63 @@ func (b *Bot) RefreshRobotStatus() (string, string) {
 		return st.Value, st.Flag
 	}
 	return b.GetRobotStatus()
+}
+
+func (b *Bot) formatStatusDisplay(status, flag string) string {
+	var icon, title string
+
+	switch status {
+	case "docked":
+		icon = "🏠"
+		title = b.t("statuses.docked")
+	case "cleaning":
+		switch flag {
+		case "segment":
+			icon = "🧹"
+			title = b.t("statuses.cleaning_segment")
+		case "zone":
+			icon = "🧹"
+			title = b.t("statuses.cleaning_zone")
+		case "spot":
+			icon = "🎯"
+			title = b.t("statuses.cleaning_spot")
+		case "mapping":
+			icon = "🗺"
+			title = b.t("statuses.cleaning_mapping")
+		default:
+			icon = "🧹"
+			title = b.t("statuses.cleaning")
+		}
+	case "paused":
+		icon = "⏸"
+		title = b.t("statuses.paused")
+	case "returning":
+		icon = "🏠"
+		title = b.t("statuses.returning")
+	case "idle":
+		icon = "💤"
+		title = b.t("statuses.idle")
+	case "moving":
+		icon = "🚗"
+		title = b.t("statuses.moving")
+	case "manual_control":
+		icon = "🎮"
+		title = b.t("statuses.manual_control")
+	case "error":
+		icon = "🚨"
+		title = b.t("statuses.error")
+		if flag != "" && flag != "none" {
+			title += " (" + flag + ")"
+		}
+	default:
+		icon = "🤖"
+		title = status
+		if title == "" {
+			title = b.t("statuses.unknown")
+		}
+	}
+
+	return fmt.Sprintf("%s %s", icon, title)
 }
 
 func (b *Bot) Caps() *valetudo.CapabilitySet {

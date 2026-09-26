@@ -193,5 +193,20 @@
     "cleaning_finished": "🏁 <b>Cleaning Complete!</b>\nRobot successfully returned to dock.\n\n⏱ <b>Time:</b> %d min %d sec\n📐 <b>Area:</b> %.1f m²",
     "clean_water_low": "🚰 <b>Dock Station: Clean water tank empty!</b>\nPlease refill the tank.",
     "dirty_water_full": "☣️ <b>Dock Station: Waste water tank full!</b>\nPlease empty the waste tank."
+  },
+  "statuses": {
+    "docked": "docked",
+    "cleaning": "cleaning",
+    "cleaning_segment": "room cleaning",
+    "cleaning_zone": "zone cleaning",
+    "cleaning_spot": "spot cleaning",
+    "cleaning_mapping": "mapping",
+    "paused": "paused",
+    "returning": "returning to dock",
+    "idle": "idle",
+    "moving": "moving",
+    "manual_control": "manual control",
+    "error": "error",
+    "unknown": "unknown"
   }
 }

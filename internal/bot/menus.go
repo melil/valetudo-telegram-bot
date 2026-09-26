@@ -23,21 +23,7 @@ func (b *Bot) getMainDashboard() (string, *telegram.InlineKeyboardMarkup) {
 		}
 	}
 
-	statusDisplay := status
-	switch status {
-	case "docked":
-		statusDisplay = "🏠 " + b.t("telemetry.status_docked")
-	case "cleaning":
-		statusDisplay = "🧹 " + status
-	case "paused":
-		statusDisplay = "⏸ " + status
-	case "returning":
-		statusDisplay = "🏠 " + status
-	case "error":
-		statusDisplay = "🚨 " + status + " (" + flag + ")"
-	default:
-		statusDisplay = "🤖 " + status
-	}
+	statusDisplay := b.formatStatusDisplay(status, flag)
 
 	text := fmt.Sprintf("%s\n\n• <b>%s:</b> %s%s",
 		b.t("main_menu.ready"),
@@ -51,27 +37,39 @@ func (b *Bot) getMainDashboard() (string, *telegram.InlineKeyboardMarkup) {
 	// Ряд 1: Контекстное управление уборкой в зависимости от статуса
 	if caps.Has(valetudo.CapBasicControl) {
 		switch {
-		case status == "cleaning" || status == "moving" || status == "returning":
+		case status == "cleaning" || status == "moving":
 			rows = append(rows, []telegram.InlineKeyboardButton{
 				{Text: b.t("main_menu.pause_cleaning"), CallbackData: "cmd_pause"},
-				{Text: b.t("main_menu.stop_robot"), CallbackData: "cmd_stop"},
-				{Text: b.t("main_menu.go_home"), CallbackData: "cmd_home"},
+				{Text: b.t("main_menu.stop_cleaning"), CallbackData: "cmd_stop"},
 			})
 		case status == "paused" || flag == "resumable":
 			rows = append(rows, []telegram.InlineKeyboardButton{
 				{Text: b.t("main_menu.resume_cleaning"), CallbackData: "cmd_resume"},
-				{Text: b.t("main_menu.stop_robot"), CallbackData: "cmd_stop"},
-				{Text: b.t("main_menu.go_home"), CallbackData: "cmd_home"},
+				{Text: b.t("main_menu.stop_cleaning"), CallbackData: "cmd_stop"},
+			})
+		case status == "returning":
+			rows = append(rows, []telegram.InlineKeyboardButton{
+				{Text: b.t("main_menu.pause_cleaning"), CallbackData: "cmd_pause"},
+				{Text: b.t("main_menu.resume_cleaning"), CallbackData: "cmd_resume"},
 			})
 		default: // "docked", "idle", "error", etc.
+			var defaultRow []telegram.InlineKeyboardButton
 			if caps.Has(valetudo.CapMapSegmentation) {
-				rows = append(rows, []telegram.InlineKeyboardButton{
-					{Text: b.t("main_menu.start_cleaning"), CallbackData: "wiz_start"},
+				defaultRow = append(defaultRow, telegram.InlineKeyboardButton{
+					Text: b.t("main_menu.start_cleaning"), CallbackData: "wiz_start",
 				})
 			} else {
-				rows = append(rows, []telegram.InlineKeyboardButton{
-					{Text: b.t("main_menu.full_clean"), CallbackData: "cmd_start"},
+				defaultRow = append(defaultRow, telegram.InlineKeyboardButton{
+					Text: b.t("main_menu.full_clean"), CallbackData: "cmd_start",
 				})
+			}
+			if status != "docked" {
+				defaultRow = append(defaultRow, telegram.InlineKeyboardButton{
+					Text: b.t("main_menu.go_home"), CallbackData: "cmd_home",
+				})
+			}
+			if len(defaultRow) > 0 {
+				rows = append(rows, defaultRow)
 			}
 		}
 	}
@@ -117,24 +115,27 @@ func (b *Bot) sendMainDashboard() {
 }
 
 func (b *Bot) sendRobotMenu() {
-	text := b.t("robot_menu.title")
 	caps := b.Caps()
 	status, flag := b.GetRobotStatus()
+	text := fmt.Sprintf("%s\n\n• <b>%s:</b> %s", b.t("robot_menu.title"), b.t("telemetry.lbl_status"), b.formatStatusDisplay(status, flag))
 	var rows [][]telegram.InlineKeyboardButton
 
 	if caps.Has(valetudo.CapBasicControl) {
 		switch {
-		case status == "cleaning" || status == "moving" || status == "returning":
+		case status == "cleaning" || status == "moving":
 			rows = append(rows, []telegram.InlineKeyboardButton{
 				{Text: b.t("robot_menu.btn_pause"), CallbackData: "cmd_pause"},
-				{Text: b.t("robot_menu.btn_stop"), CallbackData: "cmd_stop"},
-				{Text: b.t("robot_menu.btn_home"), CallbackData: "cmd_home"},
+				{Text: b.t("main_menu.stop_cleaning"), CallbackData: "cmd_stop"},
 			})
 		case status == "paused" || flag == "resumable":
 			rows = append(rows, []telegram.InlineKeyboardButton{
 				{Text: b.t("robot_menu.btn_resume"), CallbackData: "cmd_resume"},
-				{Text: b.t("robot_menu.btn_stop"), CallbackData: "cmd_stop"},
-				{Text: b.t("robot_menu.btn_home"), CallbackData: "cmd_home"},
+				{Text: b.t("main_menu.stop_cleaning"), CallbackData: "cmd_stop"},
+			})
+		case status == "returning":
+			rows = append(rows, []telegram.InlineKeyboardButton{
+				{Text: b.t("robot_menu.btn_pause"), CallbackData: "cmd_pause"},
+				{Text: b.t("robot_menu.btn_resume"), CallbackData: "cmd_resume"},
 			})
 		default: // "docked", "idle", "error", etc.
 			rows = append(rows, []telegram.InlineKeyboardButton{

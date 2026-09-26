@@ -193,5 +193,20 @@
     "cleaning_finished": "🏁 <b>清扫完成！</b>\n机器人已成功返回基站。\n\n⏱ <b>耗时：</b> %d 分 %d 秒\n📐 <b>面积：</b> %.1f m²",
     "clean_water_low": "🚰 <b>基站提示：清水箱缺水！</b>\n请加注清水。",
     "dirty_water_full": "☣️ <b>基站提示：污水箱已满！</b>\n请及时倾倒污水。"
+  },
+  "statuses": {
+    "docked": "在基站",
+    "cleaning": "清扫中",
+    "cleaning_segment": "房间清扫",
+    "cleaning_zone": "区域清扫",
+    "cleaning_spot": "定点清扫",
+    "cleaning_mapping": "快速建图",
+    "paused": "已暂停",
+    "returning": "正在回充",
+    "idle": "待机中",
+    "moving": "移动中",
+    "manual_control": "手动控制",
+    "error": "故障",
+    "unknown": "未知"
   }
 }
