@@ -7,8 +7,8 @@
 /bin/
 /dist/
 tgbot
-bot
-bot.exe
+/bot
+/bot.exe
 
 # Test artifacts
 *.test

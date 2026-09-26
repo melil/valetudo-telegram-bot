@@ -245,12 +245,19 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 }
 
 func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
-	_ = b.tg.AnswerCallbackQuery(cb.ID)
-
 	data := cb.Data
 	if data == "noop" {
+		_ = b.tg.AnswerCallbackQuery(cb.ID)
 		return
 	}
+
+	if data == "view_last_report" {
+		alertText := b.formatReportAlert(b.GetLastReport())
+		_ = b.tg.AnswerCallbackQueryAlert(cb.ID, alertText, true)
+		return
+	}
+
+	_ = b.tg.AnswerCallbackQuery(cb.ID)
 
 	caps := b.Caps()
 
@@ -302,6 +309,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		_ = b.val.TriggerAction("start")
 		b.SetRobotStatus("cleaning", "none")
+		b.StartSession(nil, b.getBatteryLevel())
 		b.sendMainDashboard()
 		return
 	case "cmd_resume":

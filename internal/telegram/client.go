@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -148,7 +149,19 @@ func (c *Client) RemoveReplyKeyboard(chatID int64, text string) error {
 }
 
 func (c *Client) AnswerCallbackQuery(callbackQueryID string) error {
-	ackURL := fmt.Sprintf("%s/answerCallbackQuery?callback_query_id=%s", c.apiURL, callbackQueryID)
+	return c.AnswerCallbackQueryAlert(callbackQueryID, "", false)
+}
+
+func (c *Client) AnswerCallbackQueryAlert(callbackQueryID string, text string, showAlert bool) error {
+	params := url.Values{}
+	params.Set("callback_query_id", callbackQueryID)
+	if text != "" {
+		params.Set("text", text)
+	}
+	if showAlert {
+		params.Set("show_alert", "true")
+	}
+	ackURL := fmt.Sprintf("%s/answerCallbackQuery?%s", c.apiURL, params.Encode())
 	resp, err := c.httpClient.Get(ackURL)
 	if err != nil {
 		return err

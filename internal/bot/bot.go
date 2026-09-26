@@ -33,6 +33,10 @@ type Bot struct {
 
 	wizardMu      sync.Mutex
 	activeWizards map[int64]*WizardSession
+
+	sessionMu  sync.RWMutex
+	session    CleaningSession
+	lastReport *CleaningReport
 }
 
 func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client) *Bot {

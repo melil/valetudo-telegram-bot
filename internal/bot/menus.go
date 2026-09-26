@@ -32,6 +32,17 @@ func (b *Bot) getMainDashboard() (string, *telegram.InlineKeyboardMarkup) {
 		batStr,
 	)
 
+	lastReport := b.GetLastReport()
+	if lastReport != nil {
+		text += fmt.Sprintf("\n• <b>%s:</b> ⏱ %d %s %d %s | 📐 %.1f м² | 🔋 -%d%%",
+			b.t("report.last_clean"),
+			lastReport.DurationMin, b.t("report.min"),
+			lastReport.DurationSec, b.t("report.sec"),
+			lastReport.AreaM2,
+			lastReport.BatteryUsed,
+		)
+	}
+
 	var rows [][]telegram.InlineKeyboardButton
 
 	// Ряд 1: Контекстное управление уборкой в зависимости от статуса
@@ -70,6 +81,11 @@ func (b *Bot) getMainDashboard() (string, *telegram.InlineKeyboardMarkup) {
 			}
 			if len(defaultRow) > 0 {
 				rows = append(rows, defaultRow)
+			}
+			if lastReport != nil {
+				rows = append(rows, []telegram.InlineKeyboardButton{
+					{Text: b.t("main_menu.btn_last_report"), CallbackData: "view_last_report"},
+				})
 			}
 		}
 	}

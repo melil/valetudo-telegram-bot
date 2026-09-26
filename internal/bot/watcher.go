@@ -31,6 +31,7 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		currentErrorFlag := "none"
 		currentCleanWater := "ok"
 		currentDirtyWater := "ok"
+		currentBattery := 0
 
 		for _, attr := range attrs {
 			switch attr.Class {
@@ -41,6 +42,8 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 				if attr.Flag != "" {
 					currentErrorFlag = attr.Flag
 				}
+			case "BatteryStateAttribute":
+				currentBattery = attr.Level
 			case "DockComponentStateAttribute":
 				valStr, _ := attr.Value.(string)
 				if attr.Type == "water_tank_clean" {
@@ -52,6 +55,17 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		}
 
 		b.SetRobotStatus(currentStatus, currentErrorFlag)
+
+		// Автоматический запуск отслеживания сессии, если уборку включили вне визарда (кнопкой на роботе/в вебе)
+		if (currentStatus == "cleaning" || currentStatus == "moving") && !b.IsSessionActive() {
+			b.StartSession(nil, currentBattery)
+		}
+
+		// Сбор пиковых метрик пока идет уборка или возврат на базу
+		if b.IsSessionActive() && (currentStatus == "cleaning" || currentStatus == "moving" || currentStatus == "returning" || currentStatus == "paused") {
+			min, sec, areaM2 := b.val.GetCurrentSessionStats()
+			b.UpdateSessionStats(min, sec, areaM2)
+		}
 
 		if firstRun {
 			lastStatus = currentStatus
@@ -68,8 +82,8 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		}
 
 		if (lastStatus == "cleaning" || lastStatus == "returning") && currentStatus == "docked" {
-			lastMin, lastSec, lastArea := b.val.GetCurrentSessionStats()
-			msg := b.t("watcher.cleaning_finished", lastMin, lastSec, lastArea)
+			report := b.FinishSession(currentBattery)
+			msg := b.formatReportCaption(report)
 
 			mapReader, err := b.val.GetMapReader()
 			if err != nil {
@@ -78,7 +92,7 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 				_ = b.tg.SendPhoto(b.cfg.AllowedChatID, mapReader, msg, b.cfg.IsDNDActive())
 				_ = mapReader.Close()
 			}
-			// Фоново обновляем дашборд на статус "На базе"
+			// Фоново обновляем дашборд на статус "На базе" с кнопкой отчета
 			b.sendMainDashboard()
 		}
 

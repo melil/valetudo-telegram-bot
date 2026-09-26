@@ -14,6 +14,7 @@
     "ready": "🕹 <b>Robot Control Ready:</b>",
     "unrecognized": "Unrecognized command. Please use the menu.",
     "not_supported": "⚠️ This feature is not supported by your robot model.",
+    "btn_last_report": "📊 Last Cleaning Report",
     "btn_back_main": "⬅️ Main Menu"
   },
   "robot_menu": {
@@ -191,8 +192,22 @@
   "watcher": {
     "err_robot": "🚨 <b>Warning! Robot Error:</b>\nStatus: <code>%s</code> | Code: <code>%s</code>",
     "cleaning_finished": "🏁 <b>Cleaning Complete!</b>\nRobot successfully returned to dock.\n\n⏱ <b>Time:</b> %d min %d sec\n📐 <b>Area:</b> %.1f m²",
+    "cleaning_finished_title": "Cleaning Complete!",
+    "cleaning_finished_subtitle": "Robot successfully returned to dock.",
     "clean_water_low": "🚰 <b>Dock Station: Clean water tank empty!</b>\nPlease refill the tank.",
     "dirty_water_full": "☣️ <b>Dock Station: Waste water tank full!</b>\nPlease empty the waste tank."
+  },
+  "report": {
+    "last_clean": "Last cleaning",
+    "alert_title": "Last Cleaning Report",
+    "empty_alert": "ℹ️ No recent cleaning data available yet.",
+    "lbl_time": "Time",
+    "lbl_area": "Area",
+    "lbl_battery": "Battery",
+    "lbl_rooms": "Areas",
+    "all_house": "Entire apartment",
+    "min": "min",
+    "sec": "sec"
   },
   "statuses": {
     "docked": "docked",

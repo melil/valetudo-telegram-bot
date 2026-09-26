@@ -14,6 +14,7 @@
     "ready": "🕹 <b>扫地机器人控制已就绪：</b>",
     "unrecognized": "未能识别该指令，请使用菜单选项。",
     "not_supported": "⚠️ 您的扫地机型号不支持此功能。",
+    "btn_last_report": "📊 上次清扫报告",
     "btn_back_main": "⬅️ 主菜单"
   },
   "robot_menu": {
@@ -191,8 +192,22 @@
   "watcher": {
     "err_robot": "🚨 <b>警告！机器人发生故障：</b>\n状态：<code>%s</code> | 错误代码：<code>%s</code>",
     "cleaning_finished": "🏁 <b>清扫完成！</b>\n机器人已成功返回基站。\n\n⏱ <b>耗时：</b> %d 分 %d 秒\n📐 <b>面积：</b> %.1f m²",
+    "cleaning_finished_title": "清扫完成！",
+    "cleaning_finished_subtitle": "机器人已成功返回基站。",
     "clean_water_low": "🚰 <b>基站提示：清水箱缺水！</b>\n请加注清水。",
     "dirty_water_full": "☣️ <b>基站提示：污水箱已满！</b>\n请及时倾倒污水。"
+  },
+  "report": {
+    "last_clean": "上次清扫",
+    "alert_title": "上次清扫报告",
+    "empty_alert": "ℹ️ 暂无最近清扫数据。",
+    "lbl_time": "耗时",
+    "lbl_area": "面积",
+    "lbl_battery": "电量",
+    "lbl_rooms": "区域",
+    "all_house": "全屋清扫",
+    "min": "分",
+    "sec": "秒"
   },
   "statuses": {
     "docked": "在基站",

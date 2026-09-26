@@ -14,6 +14,7 @@
     "ready": "🕹 <b>Robotersteuerung bereit:</b>",
     "unrecognized": "Befehl nicht erkannt. Bitte Menü verwenden.",
     "not_supported": "⚠️ Diese Funktion wird von Ihrem Robotermodell nicht unterstützt.",
+    "btn_last_report": "📊 Letzter Reinigungsbericht",
     "btn_back_main": "⬅️ Hauptmenü"
   },
   "robot_menu": {
@@ -190,9 +191,23 @@
   },
   "watcher": {
     "err_robot": "🚨 <b>Achtung! Roboterfehler:</b>\nStatus: <code>%s</code> | Code: <code>%s</code>",
-    "cleaning_finished": "🏁 <b>Reinigung abgeschlossen!</b>\nRoboter ist erfolgreich zur Station zurückgekehrt.\n\n⏱ <b>Zeit:</b> %d Min. %d Sek.\n📐 <b>Fläche:</b> %.1f m²",
+    "cleaning_finished": "🏁 <b>Reinigung abgeschlossen!</b>\nRoboter ist erfolgreich zur Station zurückgekehrt.\n\n⏱ <b>Zeit:</b> %d Min. %d Sek.\n📐 <b>Fläche:</b> %.1f м²",
+    "cleaning_finished_title": "Reinigung abgeschlossen!",
+    "cleaning_finished_subtitle": "Roboter ist erfolgreich zur Station zurückgekehrt.",
     "clean_water_low": "🚰 <b>Dockstation: Frischwasserbehälter leer!</b>\nBitte Tank auffüllen.",
     "dirty_water_full": "☣️ <b>Dockstation: Schmutzwasserbehälter voll!</b>\nBitte Tank entleeren."
+  },
+  "report": {
+    "last_clean": "Letzte Reinigung",
+    "alert_title": "Letzter Reinigungsbericht",
+    "empty_alert": "ℹ️ Noch keine aktuellen Reinigungsdaten verfügbar.",
+    "lbl_time": "Zeit",
+    "lbl_area": "Fläche",
+    "lbl_battery": "Akku",
+    "lbl_rooms": "Zonen",
+    "all_house": "Ganze Wohnung",
+    "min": "Min.",
+    "sec": "Sek."
   },
   "statuses": {
     "docked": "auf Station",
