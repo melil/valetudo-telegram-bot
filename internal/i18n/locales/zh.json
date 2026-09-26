@@ -73,12 +73,16 @@
     "btn_water": "💧 拖布水量",
     "btn_mopextend": "🦵 仿生机械臂 (MopExtend)",
     "btn_lang": "🌐 语言 / Language",
+    "btn_users": "👥 用户管理",
     "btn_back": "⬅️ 返回设置",
     "sub_mode_title": "🛠 <b>请选择默认清扫模式：</b>",
     "sub_fan_title": "💨 <b>请选择默认吸力大小：</b>",
     "sub_water_title": "💧 <b>请选择默认拖布水量：</b>",
     "sub_mopextend_title": "🦵 <b>拖布仿生机械臂 (Dreame MopExtend™)：</b>\n贴边清洁踢脚线和桌椅腿周围死角。",
     "sub_lang_title": "🌐 <b>请选择界面语言 / Select Interface Language:</b>",
+    "sub_users_title": "👥 <b>用户管理</b>\n用户总数：<b>%d</b>\n\n已授权用户列表：",
+    "user_deleted": "用户 %s 已删除",
+    "cannot_delete_self": "您不能删除自己！",
     "fan_min": "安静",
     "fan_low": "标准",
     "fan_high": "强力",
@@ -245,5 +249,20 @@
     "na": "暂无数据",
     "gc_stat": "%d 次 (停顿 %s)",
     "disk_usage": "<b>%s</b> 可用 / 共 %s (%d%%)"
+  },
+  "auth": {
+    "no_access": "⛔ <b>您没有访问权限。</b>\n您的 Chat ID: <code>%d</code>\n请将其发送给管理员。",
+    "name_not_specified": "未填写",
+    "no_username": "无用户名",
+    "request_title": "🔔 <b>机器人访问请求</b>\n\n• <b>用户:</b> %s\n• <b>姓名:</b> %s\n• <b>Chat ID:</b> <code>%d</code>\n\n是否允许该用户控制扫地机器人？",
+    "btn_approve": "✅ 允许",
+    "btn_reject": "❌ 拒绝",
+    "admin_only": "⛔ 只有管理员才能管理访问权限。",
+    "err_parse_id": "解析用户ID失败",
+    "err_db": "保存用户时数据库出错",
+    "approved_admin": "✅ <b>已授予访问权限</b>\n用户: %s 已添加，角色为 <code>user</code>。",
+    "approved_user": "🎉 <b>访问权限已开启！</b>\n管理员已允许您控制扫地机器人。\n发送 /start 打开控制菜单。",
+    "rejected_admin": "❌ <b>访问请求已拒绝</b>\nChat ID <code>%d</code> 的请求已被拒绝。",
+    "rejected_user": "❌ <b>访问被拒绝。</b>\n管理员拒绝了您的访问申请。"
   }
 }

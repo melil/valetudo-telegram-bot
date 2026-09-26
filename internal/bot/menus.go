@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"tgbot/internal/database"
 	"tgbot/internal/i18n"
 	"tgbot/internal/telegram"
 	"tgbot/internal/valetudo"
@@ -280,8 +281,78 @@ func (b *Bot) getSettingsMainMenu() (string, *telegram.InlineKeyboardMarkup) {
 	rows = append(rows, []telegram.InlineKeyboardButton{
 		{Text: b.t("settings_menu.btn_lang"), CallbackData: "sub_lang"},
 	})
+
+	if b.db != nil && b.isUserAdmin(b.GetActiveChatID()) {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("settings_menu.btn_users"), CallbackData: "sub_users"},
+		})
+	}
+
 	rows = append(rows, []telegram.InlineKeyboardButton{
 		{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_robot"},
+	})
+
+	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func (b *Bot) getUsersMenu(currentChatID int64) (string, *telegram.InlineKeyboardMarkup) {
+	if b.db == nil {
+		text := "⚠️ База данных пользователей не подключена."
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}},
+			},
+		}
+		return text, markup
+	}
+
+	users, err := b.db.GetAllUsers()
+	if err != nil {
+		text := "❌ Ошибка получения списка пользователей: " + err.Error()
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}},
+			},
+		}
+		return text, markup
+	}
+
+	text := fmt.Sprintf(b.t("settings_menu.sub_users_title"), len(users))
+
+	var rows [][]telegram.InlineKeyboardButton
+
+	for _, u := range users {
+		userLabel := ""
+		if u.Role == database.RoleAdmin {
+			userLabel = "👑 "
+		} else {
+			userLabel = "👤 "
+		}
+
+		if u.Username != "" {
+			userLabel += "@" + u.Username
+		} else {
+			userLabel += fmt.Sprintf("ID: %d", u.ChatID)
+		}
+
+		if u.Role == database.RoleAdmin {
+			userLabel += " (admin)"
+		}
+
+		if u.ChatID == currentChatID {
+			rows = append(rows, []telegram.InlineKeyboardButton{
+				{Text: userLabel + " (Вы)", CallbackData: "noop"},
+			})
+		} else {
+			rows = append(rows, []telegram.InlineKeyboardButton{
+				{Text: userLabel, CallbackData: "noop"},
+				{Text: "🗑 Удалить", CallbackData: fmt.Sprintf("user_del:%d", u.ChatID)},
+			})
+		}
+	}
+
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"},
 	})
 
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}

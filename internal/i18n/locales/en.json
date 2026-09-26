@@ -73,12 +73,16 @@
     "btn_water": "💧 Mop Wetness",
     "btn_mopextend": "🦵 Extendable Mop (MopExtend)",
     "btn_lang": "🌐 Language / Язык",
+    "btn_users": "👥 Users",
     "btn_back": "⬅️ Back to Settings",
     "sub_mode_title": "🛠 <b>Select default cleaning mode:</b>",
     "sub_fan_title": "💨 <b>Select default suction power:</b>",
     "sub_water_title": "💧 <b>Select default mop wetness:</b>",
     "sub_mopextend_title": "🦵 <b>Extendable Mop Arm (Dreame MopExtend™):</b>\nAllows the robot to clean right along baseboards and around furniture legs.",
     "sub_lang_title": "🌐 <b>Select Interface Language / Выберите язык интерфейса:</b>",
+    "sub_users_title": "👥 <b>User Management</b>\nTotal users: <b>%d</b>\n\nAuthorized bot users list:",
+    "user_deleted": "User %s deleted",
+    "cannot_delete_self": "You cannot delete yourself!",
     "fan_min": "Quiet",
     "fan_low": "Standard",
     "fan_high": "Turbo",
@@ -245,5 +249,20 @@
     "na": "N/A",
     "gc_stat": "%d runs (pause %s)",
     "disk_usage": "<b>%s</b> free of %s (%d%%)"
+  },
+  "auth": {
+    "no_access": "⛔ <b>Access Denied.</b>\nYour Chat ID: <code>%d</code>\nPlease send it to an administrator.",
+    "name_not_specified": "Not specified",
+    "no_username": "no username",
+    "request_title": "🔔 <b>Bot Access Request</b>\n\n• <b>User:</b> %s\n• <b>Name:</b> %s\n• <b>Chat ID:</b> <code>%d</code>\n\nGrant this user access to control the vacuum?",
+    "btn_approve": "✅ Allow",
+    "btn_reject": "❌ Decline",
+    "admin_only": "⛔ Only administrators can manage access permissions.",
+    "err_parse_id": "Error parsing user ID",
+    "err_db": "Database error while saving user",
+    "approved_admin": "✅ <b>Access granted</b>\nUser: %s added to system with role <code>user</code>.",
+    "approved_user": "🎉 <b>Access Granted!</b>\nAn administrator has granted you access to control the robot vacuum.\nPress /start to open the control menu.",
+    "rejected_admin": "❌ <b>Access request declined</b>\nRequest for Chat ID <code>%d</code> was declined.",
+    "rejected_user": "❌ <b>Access Denied.</b>\nAn administrator declined your access request."
   }
 }

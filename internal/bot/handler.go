@@ -2,6 +2,8 @@ package bot
 
 import (
 	"fmt"
+	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -215,6 +217,15 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 
 	case cleanText == "/settings" || i18n.Matches(cleanText, "robot_menu.btn_settings"):
 		text, markup := b.getSettingsMainMenu()
+		_ = b.renderDashboard(text, markup)
+
+	case cleanText == "/users":
+		if !b.isUserAdmin(msg.Chat.ID) {
+			replyText := fmt.Sprintf("⛔ <b>У вас нет доступа к управлению пользователями.</b>\nВаш Chat ID: <code>%d</code>", msg.Chat.ID)
+			_, _ = b.tg.SendTextMessage(msg.Chat.ID, replyText, false, nil)
+			return
+		}
+		text, markup := b.getUsersMenu(msg.Chat.ID)
 		_ = b.renderDashboard(text, markup)
 
 	case cleanText == "/start_clean" || i18n.Matches(cleanText, "robot_menu.btn_start") || i18n.Matches(cleanText, "main_menu.full_clean") || cleanText == "🚀 Вся уборка" || cleanText == "🚀 Full Clean":
@@ -592,6 +603,70 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 
 	case "sub_lang":
 		text, markup := b.getLanguageMenu()
+		_ = b.renderDashboard(text, markup)
+		return
+
+	case "sub_users":
+		if !b.isUserAdmin(cb.From.ID) {
+			_ = b.tg.AnswerCallbackQueryAlert(cb.ID, "⛔ Только администраторы имеют доступ к этому разделу.", true)
+			return
+		}
+		text, markup := b.getUsersMenu(cb.From.ID)
+		_ = b.renderDashboard(text, markup)
+		return
+	}
+
+	// --- Удаление пользователя администратором ---
+	if strings.HasPrefix(data, "user_del:") {
+		if !b.isUserAdmin(cb.From.ID) {
+			_ = b.tg.AnswerCallbackQueryAlert(cb.ID, "⛔ Только администраторы могут удалять пользователей.", true)
+			return
+		}
+
+		targetIDStr := strings.TrimPrefix(data, "user_del:")
+		targetID, err := strconv.ParseInt(targetIDStr, 10, 64)
+		if err != nil {
+			_ = b.tg.AnswerCallbackQueryAlert(cb.ID, "Ошибка парсинга ID", false)
+			return
+		}
+
+		if targetID == cb.From.ID {
+			_ = b.tg.AnswerCallbackQueryAlert(cb.ID, b.t("settings_menu.cannot_delete_self"), true)
+			return
+		}
+
+		var targetUsername string
+		if b.db != nil {
+			if u, err := b.db.GetUser(targetID); err == nil && u != nil {
+				targetUsername = u.Username
+			}
+			if err := b.db.DeleteUser(targetID); err != nil {
+				log.Printf("Ошибка удаления пользователя %d: %v", targetID, err)
+				_ = b.tg.AnswerCallbackQueryAlert(cb.ID, "Ошибка удаления из базы данных", false)
+				return
+			}
+		}
+
+		// Сброс памяти сессий и дашборда для удаленного пользователя
+		b.dashMu.Lock()
+		delete(b.dashboards, targetID)
+		b.dashMu.Unlock()
+		b.wizardMu.Lock()
+		delete(b.activeWizards, targetID)
+		b.wizardMu.Unlock()
+
+		// Уведомление удаленному пользователю
+		_, _ = b.tg.SendTextMessage(targetID, "⛔ Ваш доступ к управлению роботом был отозван администратором.", false, nil)
+
+		userDisplay := fmt.Sprintf("ID %d", targetID)
+		if targetUsername != "" {
+			userDisplay = "@" + targetUsername
+		}
+		alertText := fmt.Sprintf(b.t("settings_menu.user_deleted"), userDisplay)
+		_ = b.tg.AnswerCallbackQueryAlert(cb.ID, alertText, false)
+
+		// Обновляем список пользователей
+		text, markup := b.getUsersMenu(cb.From.ID)
 		_ = b.renderDashboard(text, markup)
 		return
 	}

@@ -73,12 +73,16 @@
     "btn_water": "💧 Wischfeuchtigkeit",
     "btn_mopextend": "🦵 Ausfahrbarer Mopp (MopExtend)",
     "btn_lang": "🌐 Sprache / Language",
+    "btn_users": "👥 Benutzer",
     "btn_back": "⬅️ Zurück zu Einstellungen",
     "sub_mode_title": "🛠 <b>Standard-Reinigungsmodus wählen:</b>",
     "sub_fan_title": "💨 <b>Standard-Saugleistung wählen:</b>",
     "sub_water_title": "💧 <b>Standard-Wischfeuchtigkeit wählen:</b>",
     "sub_mopextend_title": "🦵 <b>Ausfahrbarer Mopp-Arm (Dreame MopExtend™):</b>\nErmöglicht kantennahes Wischen an Fußleisten und Möbelbeinen.",
     "sub_lang_title": "🌐 <b>Sprache auswählen / Select Interface Language:</b>",
+    "sub_users_title": "👥 <b>Benutzerverwaltung</b>\nGesamtbenutzer: <b>%d</b>\n\nListe der autorisierten Bot-Benutzer:",
+    "user_deleted": "Benutzer %s gelöscht",
+    "cannot_delete_self": "Sie können sich nicht selbst löschen!",
     "fan_min": "Leise",
     "fan_low": "Standard",
     "fan_high": "Turbo",
@@ -245,5 +249,20 @@
     "na": "k.A.",
     "gc_stat": "%d Läufe (Pause %s)",
     "disk_usage": "<b>%s</b> frei von %s (%d%%)"
+  },
+  "auth": {
+    "no_access": "⛔ <b>Kein Zugriff.</b>\nIhre Chat-ID: <code>%d</code>\nBitte an den Administrator senden.",
+    "name_not_specified": "Nicht angegeben",
+    "no_username": "kein Benutzername",
+    "request_title": "🔔 <b>Zugriffsanfrage für den Bot</b>\n\n• <b>Benutzer:</b> %s\n• <b>Name:</b> %s\n• <b>Chat-ID:</b> <code>%d</code>\n\nDiesem Benutzer die Steuerung des Staubsaugers erlauben?",
+    "btn_approve": "✅ Erlauben",
+    "btn_reject": "❌ Ablehnen",
+    "admin_only": "⛔ Nur Administratoren können Zugriffsrechte verwalten.",
+    "err_parse_id": "Fehler beim Parsen der Benutzer-ID",
+    "err_db": "Datenbankfehler beim Speichern des Benutzers",
+    "approved_admin": "✅ <b>Zugriff gewährt</b>\nBenutzer: %s wurde mit der Rolle <code>user</code> hinzugefügt.",
+    "approved_user": "🎉 <b>Zugriff gewährt!</b>\nEin Administrator hat Ihnen Zugriff auf den Saugroboter gewährt.\nDrücken Sie /start, um das Menü zu öffnen.",
+    "rejected_admin": "❌ <b>Zugriffsanfrage abgelehnt</b>\nAnfrage für Chat-ID <code>%d</code> wurde abgelehnt.",
+    "rejected_user": "❌ <b>Zugriff verweigert.</b>\nEin Administrator hat Ihre Zugriffsanfrage abgelehnt."
   }
 }
