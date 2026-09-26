@@ -7,24 +7,33 @@
     "rooms": "🗺 Rooms",
     "locate": "📢 Locate Robot",
     "full_clean": "🚀 Full Clean",
+    "resume_cleaning": "▶️ Resume Cleaning",
+    "pause_cleaning": "⏸ Pause",
+    "stop_robot": "🛑 Stop",
+    "go_home": "🏠 Return Home",
     "ready": "🕹 <b>Robot Control Ready:</b>",
     "unrecognized": "Unrecognized command. Please use the menu.",
-    "not_supported": "⚠️ This feature is not supported by your robot model."
+    "not_supported": "⚠️ This feature is not supported by your robot model.",
+    "btn_back_main": "⬅️ Main Menu"
   },
   "robot_menu": {
     "title": "🤖 <b>Robot Control</b>\nSelect an action:",
     "btn_start": "🚀 Start (Full Clean)",
+    "btn_resume": "▶️ Resume",
     "btn_pause": "⏸ Pause",
+    "btn_stop": "🛑 Stop",
     "btn_home": "🏠 Return Home",
     "btn_telemetry": "🏎 Telemetry",
     "btn_consumables": "🧹 Consumables",
     "btn_settings": "⚙️ Settings",
     "btn_back": "⬅️ Back to Robot",
     "started": "🚀 <b>Full cleaning started.</b>",
+    "resumed": "▶️ <b>Cleaning resumed.</b>",
     "paused": "⏸ <b>Robot is paused.</b>",
     "returning": "🏠 <b>Robot is returning to dock.</b>",
     "located": "🔊 Playing sound beacon!",
-    "stopped": "🛑 Cleaning stopped. Returning to dock."
+    "stopped": "🛑 Cleaning stopped. Returning to dock.",
+    "stopped_inplace": "🛑 <b>Robot stopped in place.</b>"
   },
   "station_menu": {
     "title": "🏠 <b>Dock Station Control</b>\nSelect an action:",

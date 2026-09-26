@@ -2,25 +2,145 @@ package bot
 
 import (
 	"fmt"
+	"strings"
 
 	"tgbot/internal/i18n"
 	"tgbot/internal/telegram"
 	"tgbot/internal/valetudo"
 )
 
-func (b *Bot) sendRobotMenu(msgID int) {
+func (b *Bot) getMainDashboard() (string, *telegram.InlineKeyboardMarkup) {
+	caps := b.Caps()
+	status, flag := b.GetRobotStatus()
+
+	batStr := ""
+	if attrs, err := b.val.GetAttributes(); err == nil {
+		for _, attr := range attrs {
+			if attr.Class == "BatteryStateAttribute" {
+				batStr = fmt.Sprintf(" | 🔋 <b>%d%%</b>", attr.Level)
+				break
+			}
+		}
+	}
+
+	statusDisplay := status
+	switch status {
+	case "docked":
+		statusDisplay = "🏠 " + b.t("telemetry.status_docked")
+	case "cleaning":
+		statusDisplay = "🧹 " + status
+	case "paused":
+		statusDisplay = "⏸ " + status
+	case "returning":
+		statusDisplay = "🏠 " + status
+	case "error":
+		statusDisplay = "🚨 " + status + " (" + flag + ")"
+	default:
+		statusDisplay = "🤖 " + status
+	}
+
+	text := fmt.Sprintf("%s\n\n• <b>%s:</b> %s%s",
+		b.t("main_menu.ready"),
+		b.t("telemetry.lbl_status"),
+		statusDisplay,
+		batStr,
+	)
+
+	var rows [][]telegram.InlineKeyboardButton
+
+	// Ряд 1: Контекстное управление уборкой в зависимости от статуса
+	if caps.Has(valetudo.CapBasicControl) {
+		switch {
+		case status == "cleaning" || status == "moving" || status == "returning":
+			rows = append(rows, []telegram.InlineKeyboardButton{
+				{Text: b.t("main_menu.pause_cleaning"), CallbackData: "cmd_pause"},
+				{Text: b.t("main_menu.stop_robot"), CallbackData: "cmd_stop"},
+				{Text: b.t("main_menu.go_home"), CallbackData: "cmd_home"},
+			})
+		case status == "paused" || flag == "resumable":
+			rows = append(rows, []telegram.InlineKeyboardButton{
+				{Text: b.t("main_menu.resume_cleaning"), CallbackData: "cmd_resume"},
+				{Text: b.t("main_menu.stop_robot"), CallbackData: "cmd_stop"},
+				{Text: b.t("main_menu.go_home"), CallbackData: "cmd_home"},
+			})
+		default: // "docked", "idle", "error", etc.
+			if caps.Has(valetudo.CapMapSegmentation) {
+				rows = append(rows, []telegram.InlineKeyboardButton{
+					{Text: b.t("main_menu.start_cleaning"), CallbackData: "wiz_start"},
+				})
+			} else {
+				rows = append(rows, []telegram.InlineKeyboardButton{
+					{Text: b.t("main_menu.full_clean"), CallbackData: "cmd_start"},
+				})
+			}
+		}
+	}
+
+	// Ряд 2: Устройства (Робот, Станция)
+	var deviceRow []telegram.InlineKeyboardButton
+	deviceRow = append(deviceRow, telegram.InlineKeyboardButton{
+		Text:         b.t("main_menu.robot"),
+		CallbackData: "menu_robot",
+	})
+	if caps.HasStation() {
+		deviceRow = append(deviceRow, telegram.InlineKeyboardButton{
+			Text:         b.t("main_menu.station"),
+			CallbackData: "menu_station",
+		})
+	}
+	rows = append(rows, deviceRow)
+
+	// Ряд 3: Дополнительно (Комнаты, Поиск робота)
+	var utilRow []telegram.InlineKeyboardButton
+	if caps.Has(valetudo.CapMapSegmentation) {
+		utilRow = append(utilRow, telegram.InlineKeyboardButton{
+			Text:         b.t("main_menu.rooms"),
+			CallbackData: "menu_rooms",
+		})
+	}
+	if caps.Has(valetudo.CapLocate) {
+		utilRow = append(utilRow, telegram.InlineKeyboardButton{
+			Text:         b.t("main_menu.locate"),
+			CallbackData: "cmd_locate",
+		})
+	}
+	if len(utilRow) > 0 {
+		rows = append(rows, utilRow)
+	}
+
+	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func (b *Bot) sendMainDashboard() {
+	text, markup := b.getMainDashboard()
+	_ = b.renderDashboard(text, markup)
+}
+
+func (b *Bot) sendRobotMenu() {
 	text := b.t("robot_menu.title")
 	caps := b.Caps()
+	status, flag := b.GetRobotStatus()
 	var rows [][]telegram.InlineKeyboardButton
 
 	if caps.Has(valetudo.CapBasicControl) {
-		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: b.t("robot_menu.btn_start"), CallbackData: "cmd_start"},
-		})
-		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: b.t("robot_menu.btn_pause"), CallbackData: "cmd_pause"},
-			{Text: b.t("robot_menu.btn_home"), CallbackData: "cmd_home"},
-		})
+		switch {
+		case status == "cleaning" || status == "moving" || status == "returning":
+			rows = append(rows, []telegram.InlineKeyboardButton{
+				{Text: b.t("robot_menu.btn_pause"), CallbackData: "cmd_pause"},
+				{Text: b.t("robot_menu.btn_stop"), CallbackData: "cmd_stop"},
+				{Text: b.t("robot_menu.btn_home"), CallbackData: "cmd_home"},
+			})
+		case status == "paused" || flag == "resumable":
+			rows = append(rows, []telegram.InlineKeyboardButton{
+				{Text: b.t("robot_menu.btn_resume"), CallbackData: "cmd_resume"},
+				{Text: b.t("robot_menu.btn_stop"), CallbackData: "cmd_stop"},
+				{Text: b.t("robot_menu.btn_home"), CallbackData: "cmd_home"},
+			})
+		default: // "docked", "idle", "error", etc.
+			rows = append(rows, []telegram.InlineKeyboardButton{
+				{Text: b.t("robot_menu.btn_start"), CallbackData: "cmd_start"},
+			})
+		}
 	}
 
 	var statusRow []telegram.InlineKeyboardButton
@@ -39,38 +159,32 @@ func (b *Bot) sendRobotMenu(msgID int) {
 	rows = append(rows, []telegram.InlineKeyboardButton{
 		{Text: b.t("robot_menu.btn_settings"), CallbackData: "menu_settings"},
 	})
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"},
+	})
 
 	markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
-
-	if msgID == 0 {
-		_, _ = b.tg.SendPayload(telegram.SendMessagePayload{
-			ChatID:              b.cfg.AllowedChatID,
-			Text:                text,
-			ParseMode:           "HTML",
-			ReplyMarkup:         markup,
-			DisableNotification: b.cfg.IsDNDActive(),
-		})
-	} else {
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, msgID, text, markup)
-	}
+	_ = b.renderDashboard(text, markup)
 }
 
-func (b *Bot) sendStationMenu(msgID int) {
+func (b *Bot) sendStationMenu() {
 	caps := b.Caps()
 	if !caps.HasStation() {
 		text := b.t("main_menu.not_supported")
-		if msgID == 0 {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, text, b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		} else {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, msgID, text, nil)
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+			},
 		}
+		_ = b.renderDashboard(text, markup)
 		return
 	}
 
+	status, _ := b.GetRobotStatus()
 	text := b.t("station_menu.title")
 	var rows [][]telegram.InlineKeyboardButton
 
-	if caps.Has(valetudo.CapBasicControl) {
+	if caps.Has(valetudo.CapBasicControl) && status != "docked" {
 		rows = append(rows, []telegram.InlineKeyboardButton{
 			{Text: b.t("station_menu.btn_dock_home"), CallbackData: "cmd_station_home"},
 		})
@@ -109,19 +223,12 @@ func (b *Bot) sendStationMenu(msgID int) {
 		rows = append(rows, dockSettingsRow)
 	}
 
-	markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"},
+	})
 
-	if msgID == 0 {
-		_, _ = b.tg.SendPayload(telegram.SendMessagePayload{
-			ChatID:              b.cfg.AllowedChatID,
-			Text:                text,
-			ParseMode:           "HTML",
-			ReplyMarkup:         markup,
-			DisableNotification: b.cfg.IsDNDActive(),
-		})
-	} else {
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, msgID, text, markup)
-	}
+	markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+	_ = b.renderDashboard(text, markup)
 }
 
 func (b *Bot) getSettingsMainMenu() (string, *telegram.InlineKeyboardMarkup) {
@@ -174,24 +281,26 @@ func (b *Bot) getLanguageMenu() (string, *telegram.InlineKeyboardMarkup) {
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
-func (b *Bot) sendConsumablesMenu(msgID int) {
+func (b *Bot) sendConsumablesMenu() {
 	if !b.Caps().Has(valetudo.CapConsumableMonitoring) {
 		text := b.t("main_menu.not_supported")
-		if msgID == 0 {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, text, b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		} else {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, msgID, text, nil)
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}},
+			},
 		}
+		_ = b.renderDashboard(text, markup)
 		return
 	}
 
 	displays, err := b.getConsumablesDisplay()
 	if err != nil {
-		if msgID == 0 {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("consumables.err_api"), b.cfg.IsDNDActive(), nil)
-		} else {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, msgID, b.t("consumables.err_api"), nil)
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}},
+			},
 		}
+		_ = b.renderDashboard(b.t("consumables.err_api"), markup)
 		return
 	}
 
@@ -233,16 +342,35 @@ func (b *Bot) sendConsumablesMenu(msgID int) {
 
 	rows = append(rows, []telegram.InlineKeyboardButton{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}})
 	markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+	_ = b.renderDashboard(text, markup)
+}
 
-	if msgID == 0 {
-		_, _ = b.tg.SendPayload(telegram.SendMessagePayload{
-			ChatID:              b.cfg.AllowedChatID,
-			Text:                text,
-			ParseMode:           "HTML",
-			ReplyMarkup:         markup,
-			DisableNotification: b.cfg.IsDNDActive(),
-		})
+func (b *Bot) sendRoomsMenu() {
+	rooms, err := b.getRooms()
+	var text string
+	if err != nil {
+		text = fmt.Sprintf(b.t("rooms.err_get"), err.Error())
 	} else {
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, msgID, text, markup)
+		var lines []string
+		for _, r := range rooms {
+			lines = append(lines, fmt.Sprintf("• <b>%s</b> (ID: <code>%s</code>)", r.Name, r.ID))
+		}
+		text = fmt.Sprintf(b.t("rooms.title"), strings.Join(lines, "\n"))
 	}
+	markup := &telegram.InlineKeyboardMarkup{
+		InlineKeyboard: [][]telegram.InlineKeyboardButton{
+			{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+		},
+	}
+	_ = b.renderDashboard(text, markup)
+}
+
+func (b *Bot) sendTelemetryMenu() {
+	text := b.buildTelemetryReport()
+	markup := &telegram.InlineKeyboardMarkup{
+		InlineKeyboard: [][]telegram.InlineKeyboardButton{
+			{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}},
+		},
+	}
+	_ = b.renderDashboard(text, markup)
 }

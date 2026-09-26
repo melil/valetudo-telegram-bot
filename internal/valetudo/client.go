@@ -242,6 +242,28 @@ func (c *Client) GetAttributes() ([]GenericAttribute, error) {
 	return attrs, nil
 }
 
+type RobotStatus struct {
+	Value string `json:"value"`
+	Flag  string `json:"flag"`
+}
+
+func (c *Client) GetStatus() (RobotStatus, error) {
+	attrs, err := c.GetAttributes()
+	if err != nil {
+		return RobotStatus{Value: "unknown", Flag: "none"}, err
+	}
+	for _, attr := range attrs {
+		if attr.Class == "StatusStateAttribute" {
+			val, _ := attr.Value.(string)
+			return RobotStatus{
+				Value: val,
+				Flag:  attr.Flag,
+			}, nil
+		}
+	}
+	return RobotStatus{Value: "unknown", Flag: "none"}, nil
+}
+
 func (c *Client) GetConsumables() ([]ConsumableItem, error) {
 	resp, err := c.httpClient.Get(c.baseURL + "/capabilities/ConsumableMonitoringCapability")
 	if err != nil {

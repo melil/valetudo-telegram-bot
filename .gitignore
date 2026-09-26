@@ -1,0 +1,40 @@
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/dist/
+tgbot
+bot
+bot.exe
+
+# Test artifacts
+*.test
+*.out
+coverage.*
+
+# Go workspace
+go.work
+go.work.sum
+
+# Environment files and secrets
+.env
+.env.*
+*.local
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Project-specific / external repos
+Valetudo-master/
+valetudo-master/

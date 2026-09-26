@@ -7,24 +7,33 @@
     "rooms": "🗺 Räume",
     "locate": "📢 Roboter finden",
     "full_clean": "🚀 Komplettreinigung",
+    "resume_cleaning": "▶️ Reinigung fortsetzen",
+    "pause_cleaning": "⏸ Pause",
+    "stop_robot": "🛑 Stopp",
+    "go_home": "🏠 Zur Station",
     "ready": "🕹 <b>Robotersteuerung bereit:</b>",
     "unrecognized": "Befehl nicht erkannt. Bitte Menü verwenden.",
-    "not_supported": "⚠️ Diese Funktion wird von Ihrem Robotermodell nicht unterstützt."
+    "not_supported": "⚠️ Diese Funktion wird von Ihrem Robotermodell nicht unterstützt.",
+    "btn_back_main": "⬅️ Hauptmenü"
   },
   "robot_menu": {
     "title": "🤖 <b>Robotersteuerung</b>\nAktion auswählen:",
     "btn_start": "🚀 Start (Komplettreinigung)",
+    "btn_resume": "▶️ Fortsetzen",
     "btn_pause": "⏸ Pause",
+    "btn_stop": "🛑 Stopp",
     "btn_home": "🏠 Zurück zur Station",
     "btn_telemetry": "🏎 Telemetrie",
     "btn_consumables": "🧹 Verbrauchsmaterial",
     "btn_settings": "⚙️ Einstellungen",
     "btn_back": "⬅️ Zurück zum Roboter",
     "started": "🚀 <b>Komplettreinigung gestartet.</b>",
+    "resumed": "▶️ <b>Reinigung fortgesetzt.</b>",
     "paused": "⏸ <b>Roboter pausiert.</b>",
     "returning": "🏠 <b>Roboter kehrt zur Station zurück.</b>",
     "located": "🔊 Tonsignal wird abgespielt!",
-    "stopped": "🛑 Reinigung abgebrochen. Kehre zur Station zurück."
+    "stopped": "🛑 Reinigung abgebrochen. Kehre zur Station zurück.",
+    "stopped_inplace": "🛑 <b>Roboter angehalten.</b>"
   },
   "station_menu": {
     "title": "🏠 <b>Dockstation-Steuerung</b>\nAktion auswählen:",

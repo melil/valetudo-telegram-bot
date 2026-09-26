@@ -12,17 +12,24 @@ import (
 
 func (b *Bot) getMainMenuMarkup() *telegram.ReplyKeyboardMarkup {
 	caps := b.Caps()
+	status, flag := b.GetRobotStatus()
 	var keyboard [][]string
 
-	// Ряд 1: Управление уборкой
+	// Ряд 1: Управление уборкой в зависимости от статуса робота
 	var cleanRow []string
-	if caps.Has(valetudo.CapMapSegmentation) {
-		cleanRow = append(cleanRow, b.t("main_menu.start_cleaning"))
-	} else if caps.Has(valetudo.CapBasicControl) {
-		cleanRow = append(cleanRow, b.t("main_menu.full_clean"))
-	}
 	if caps.Has(valetudo.CapBasicControl) {
-		cleanRow = append(cleanRow, b.t("main_menu.stop_cleaning"))
+		switch {
+		case status == "cleaning" || status == "moving" || status == "returning":
+			cleanRow = append(cleanRow, b.t("main_menu.pause_cleaning"), b.t("main_menu.stop_robot"), b.t("main_menu.go_home"))
+		case status == "paused" || flag == "resumable":
+			cleanRow = append(cleanRow, b.t("main_menu.resume_cleaning"), b.t("main_menu.stop_robot"), b.t("main_menu.go_home"))
+		default: // "docked", "idle", "error", etc.
+			if caps.Has(valetudo.CapMapSegmentation) {
+				cleanRow = append(cleanRow, b.t("main_menu.start_cleaning"))
+			} else {
+				cleanRow = append(cleanRow, b.t("main_menu.full_clean"))
+			}
+		}
 	}
 	if len(cleanRow) > 0 {
 		keyboard = append(keyboard, cleanRow)
@@ -54,126 +61,171 @@ func (b *Bot) getMainMenuMarkup() *telegram.ReplyKeyboardMarkup {
 	}
 }
 
-func (b *Bot) handleTextCommand(text string) {
-	cleanText := strings.TrimSpace(text)
+func (b *Bot) handleTextCommand(msg *telegram.Message) {
+	if msg == nil {
+		return
+	}
+	// Удаляем входящее сообщение пользователя из чата, чтобы чат оставался чистым
+	_ = b.tg.DeleteMessage(msg.Chat.ID, msg.MessageID)
+
+	cleanText := strings.TrimSpace(msg.Text)
 	caps := b.Caps()
 
 	switch {
 	case cleanText == "/start" || cleanText == "Меню" || cleanText == "Menu" || cleanText == "Menü" || cleanText == "菜单":
-		_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.ready"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		b.sendMainDashboard()
 
 	case cleanText == "/wizard" || i18n.Matches(cleanText, "main_menu.start_cleaning"):
 		if !caps.Has(valetudo.CapMapSegmentation) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		b.startCleaningWizard()
 
-	case cleanText == "/stop" || i18n.Matches(cleanText, "main_menu.stop_cleaning"):
+	case cleanText == "/resume" || i18n.Matches(cleanText, "main_menu.resume_cleaning") || i18n.Matches(cleanText, "robot_menu.btn_resume"):
 		if !caps.Has(valetudo.CapBasicControl) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
-		if err := b.val.TriggerAction("home"); err != nil {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "❌ "+err.Error(), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		} else {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("robot_menu.stopped"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		_ = b.val.TriggerAction("start")
+		b.SetRobotStatus("cleaning", "none")
+		b.sendMainDashboard()
+
+	case cleanText == "/stop" || i18n.Matches(cleanText, "main_menu.stop_robot") || i18n.Matches(cleanText, "main_menu.stop_cleaning") || i18n.Matches(cleanText, "robot_menu.btn_stop"):
+		if !caps.Has(valetudo.CapBasicControl) {
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
+			return
 		}
+		_ = b.val.TriggerAction("stop")
+		b.SetRobotStatus("idle", "none")
+		b.sendMainDashboard()
+
+	case cleanText == "/pause" || i18n.Matches(cleanText, "main_menu.pause_cleaning") || i18n.Matches(cleanText, "robot_menu.btn_pause"):
+		if !caps.Has(valetudo.CapBasicControl) {
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
+			return
+		}
+		_ = b.val.TriggerAction("pause")
+		b.SetRobotStatus("paused", "resumable")
+		b.sendMainDashboard()
+
+	case cleanText == "/home" || i18n.Matches(cleanText, "main_menu.go_home") || i18n.Matches(cleanText, "robot_menu.btn_home") || cleanText == "🏠 На базу" || cleanText == "🏠 Return Home" || cleanText == "🏠 Домой":
+		if !caps.Has(valetudo.CapBasicControl) {
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
+			return
+		}
+		_ = b.val.TriggerAction("home")
+		b.SetRobotStatus("returning", "none")
+		b.sendMainDashboard()
 
 	case cleanText == "/robot" || i18n.Matches(cleanText, "main_menu.robot"):
-		b.sendRobotMenu(0)
+		b.sendRobotMenu()
 
 	case cleanText == "/station" || i18n.Matches(cleanText, "main_menu.station"):
 		if !caps.HasStation() {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
-		b.sendStationMenu(0)
+		b.sendStationMenu()
 
 	case cleanText == "/locate" || i18n.Matches(cleanText, "main_menu.locate"):
 		if !caps.Has(valetudo.CapLocate) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		_ = b.val.TriggerLocate()
-		_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("robot_menu.located"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		b.sendMainDashboard()
 
 	case cleanText == "/rooms" || i18n.Matches(cleanText, "main_menu.rooms"):
 		if !caps.Has(valetudo.CapMapSegmentation) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
-		rooms, err := b.getRooms()
-		if err != nil {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, fmt.Sprintf(b.t("rooms.err_get"), err.Error()), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		} else {
-			var lines []string
-			for _, r := range rooms {
-				lines = append(lines, fmt.Sprintf("• <b>%s</b> (ID: <code>%s</code>)", r.Name, r.ID))
-			}
-			report := fmt.Sprintf(b.t("rooms.title"), strings.Join(lines, "\n"))
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, report, b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		}
+		b.sendRoomsMenu()
 
 	case cleanText == "/settings" || i18n.Matches(cleanText, "robot_menu.btn_settings"):
 		text, markup := b.getSettingsMainMenu()
-		_, _ = b.tg.SendPayload(telegram.SendMessagePayload{
-			ChatID:              b.cfg.AllowedChatID,
-			Text:                text,
-			ParseMode:           "HTML",
-			ReplyMarkup:         markup,
-			DisableNotification: b.cfg.IsDNDActive(),
-		})
+		_ = b.renderDashboard(text, markup)
 
 	case cleanText == "/start_clean" || i18n.Matches(cleanText, "robot_menu.btn_start") || i18n.Matches(cleanText, "main_menu.full_clean") || cleanText == "🚀 Вся уборка" || cleanText == "🚀 Full Clean":
 		if !caps.Has(valetudo.CapBasicControl) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
-		if err := b.val.TriggerAction("start"); err != nil {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "❌ "+err.Error(), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		} else {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("robot_menu.started"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		}
-
-	case cleanText == "/pause" || i18n.Matches(cleanText, "robot_menu.btn_pause"):
-		if !caps.Has(valetudo.CapBasicControl) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-			return
-		}
-		if err := b.val.TriggerAction("pause"); err != nil {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "❌ "+err.Error(), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		} else {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("robot_menu.paused"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		}
-
-	case cleanText == "/home" || i18n.Matches(cleanText, "robot_menu.btn_home") || cleanText == "🏠 На базу" || cleanText == "🏠 Return Home":
-		if !caps.Has(valetudo.CapBasicControl) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-			return
-		}
-		if err := b.val.TriggerAction("home"); err != nil {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "❌ "+err.Error(), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		} else {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("robot_menu.returning"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
-		}
+		_ = b.val.TriggerAction("start")
+		b.SetRobotStatus("cleaning", "none")
+		b.sendMainDashboard()
 
 	case cleanText == "/telemetry" || i18n.Matches(cleanText, "robot_menu.btn_telemetry"):
-		_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.buildTelemetryReport(), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		b.sendTelemetryMenu()
 
 	case cleanText == "/consumables" || i18n.Matches(cleanText, "robot_menu.btn_consumables"):
 		if !caps.Has(valetudo.CapConsumableMonitoring) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.not_supported"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
-		b.sendConsumablesMenu(0)
+		b.sendConsumablesMenu()
 
 	case cleanText == "/reload_caps":
 		if err := b.LoadCapabilities(); err != nil {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, "❌ Ошибка загрузки возможностей: "+err.Error(), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard("❌ Ошибка загрузки возможностей: "+err.Error(), markup)
 		} else {
-			capsList := strings.Join(b.Caps().List(), ", ")
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, fmt.Sprintf("✅ Возможности робота обновлены (%d):\n<code>%s</code>", len(b.Caps().List()), capsList), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			b.sendMainDashboard()
 		}
 
 	case strings.HasPrefix(cleanText, "/lang"):
@@ -181,21 +233,14 @@ func (b *Bot) handleTextCommand(text string) {
 		if len(parts) >= 2 {
 			newLocale := i18n.NormalizeLocale(parts[1])
 			b.SetLang(newLocale)
-			msg := fmt.Sprintf(b.t("settings_menu.lang_updated"), i18n.LocaleName(newLocale))
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, msg, b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+			b.sendMainDashboard()
 		} else {
 			text, markup := b.getLanguageMenu()
-			_, _ = b.tg.SendPayload(telegram.SendMessagePayload{
-				ChatID:              b.cfg.AllowedChatID,
-				Text:                text,
-				ParseMode:           "HTML",
-				ReplyMarkup:         markup,
-				DisableNotification: b.cfg.IsDNDActive(),
-			})
+			_ = b.renderDashboard(text, markup)
 		}
 
 	default:
-		_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("main_menu.unrecognized"), b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		b.sendMainDashboard()
 	}
 }
 
@@ -209,6 +254,32 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 
 	caps := b.Caps()
 
+	// --- Главное меню и базовые переходы ---
+	switch data {
+	case "menu_main":
+		b.sendMainDashboard()
+		return
+	case "wiz_start", "cmd_wizard":
+		b.startCleaningWizard()
+		return
+	case "menu_rooms":
+		b.sendRoomsMenu()
+		return
+	case "cmd_locate":
+		if !caps.Has(valetudo.CapLocate) {
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
+			return
+		}
+		_ = b.val.TriggerLocate()
+		b.sendMainDashboard()
+		return
+	}
+
 	// --- Обработка мастера уборки (Wizard) ---
 	if b.handleWizardCallback(cb) {
 		return
@@ -217,97 +288,165 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 	// --- Действия меню Робот ---
 	switch data {
 	case "menu_robot":
-		b.sendRobotMenu(cb.Message.MessageID)
+		b.sendRobotMenu()
 		return
 	case "cmd_start":
 		if !caps.Has(valetudo.CapBasicControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		_ = b.val.TriggerAction("start")
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}}}}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("robot_menu.started"), markup)
+		b.SetRobotStatus("cleaning", "none")
+		b.sendMainDashboard()
+		return
+	case "cmd_resume":
+		if !caps.Has(valetudo.CapBasicControl) {
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
+			return
+		}
+		_ = b.val.TriggerAction("start")
+		b.SetRobotStatus("cleaning", "none")
+		b.sendMainDashboard()
 		return
 	case "cmd_pause":
 		if !caps.Has(valetudo.CapBasicControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		_ = b.val.TriggerAction("pause")
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}}}}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("robot_menu.paused"), markup)
+		b.SetRobotStatus("paused", "resumable")
+		b.sendMainDashboard()
+		return
+	case "cmd_stop":
+		if !caps.Has(valetudo.CapBasicControl) {
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
+			return
+		}
+		_ = b.val.TriggerAction("stop")
+		b.SetRobotStatus("idle", "none")
+		b.sendMainDashboard()
 		return
 	case "cmd_home":
 		if !caps.Has(valetudo.CapBasicControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		_ = b.val.TriggerAction("home")
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}}}}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("robot_menu.returning"), markup)
+		b.SetRobotStatus("returning", "none")
+		b.sendMainDashboard()
 		return
 	case "cmd_telemetry":
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("robot_menu.btn_back"), CallbackData: "menu_robot"}}}}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.buildTelemetryReport(), markup)
+		b.sendTelemetryMenu()
 		return
 	case "cmd_consumables":
-		b.sendConsumablesMenu(cb.Message.MessageID)
+		b.sendConsumablesMenu()
 		return
 	}
 
 	// --- Управление Станцией ---
 	switch data {
 	case "menu_station":
-		b.sendStationMenu(cb.Message.MessageID)
+		b.sendStationMenu()
 		return
 	case "cmd_station_home":
 		if !caps.Has(valetudo.CapBasicControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("main_menu.btn_back_main"), CallbackData: "menu_main"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		_ = b.val.TriggerAction("home")
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}}}}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("robot_menu.returning"), markup)
+		b.SetRobotStatus("returning", "none")
+		b.sendStationMenu()
 		return
 	case "dock_empty":
 		if !caps.Has(valetudo.CapAutoEmptyDockManualTrigger) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		_ = b.val.TriggerCapabilityAction("AutoEmptyDockManualTriggerCapability", "trigger")
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}}}}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("station_menu.emptying_started"), markup)
+		b.sendStationMenu()
 		return
 	case "dock_wash":
 		if !caps.Has(valetudo.CapMopDockCleanManualTrigger) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		_ = b.val.TriggerCapabilityAction("MopDockCleanManualTriggerCapability", "start")
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}}}}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("station_menu.washing_started"), markup)
+		b.sendStationMenu()
 		return
 	case "dock_dry_start":
 		if !caps.Has(valetudo.CapMopDockDryManualTrigger) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		_ = b.val.TriggerCapabilityAction("MopDockDryManualTriggerCapability", "start")
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}}}}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("station_menu.drying_started"), markup)
+		b.sendStationMenu()
 		return
 	case "dock_dry_stop":
 		if !caps.Has(valetudo.CapMopDockDryManualTrigger) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		_ = b.val.TriggerCapabilityAction("MopDockDryManualTriggerCapability", "stop")
-		markup := &telegram.InlineKeyboardMarkup{InlineKeyboard: [][]telegram.InlineKeyboardButton{{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}}}}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("station_menu.drying_stopped"), markup)
+		b.sendStationMenu()
 		return
 	case "menu_wash_temp":
 		if !caps.Has(valetudo.CapMopDockMopWashTemperatureControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		text := b.t("wash_temp_menu.title")
@@ -316,11 +455,16 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 			{{Text: b.t("wash_temp_menu.hot"), CallbackData: "set_wash_temp:hot"}, {Text: b.t("wash_temp_menu.scalding"), CallbackData: "set_wash_temp:scalding"}},
 			{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}},
 		}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
+		_ = b.renderDashboard(text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 		return
 	case "menu_dry_time":
 		if !caps.Has(valetudo.CapMopDockMopDryingTimeControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}},
+				},
+			}
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), markup)
 			return
 		}
 		text := b.t("dry_time_menu.title")
@@ -329,7 +473,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 			{{Text: b.t("dry_time_menu.4h"), CallbackData: "set_dry_time:4h"}, {Text: b.t("dry_time_menu.cold"), CallbackData: "set_dry_time:cold"}},
 			{{Text: b.t("station_menu.btn_back"), CallbackData: "menu_station"}},
 		}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
+		_ = b.renderDashboard(text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 		return
 	}
 
@@ -337,12 +481,12 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 	switch data {
 	case "menu_settings":
 		text, markup := b.getSettingsMainMenu()
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, markup)
+		_ = b.renderDashboard(text, markup)
 		return
 
 	case "sub_mode":
 		if !caps.Has(valetudo.CapOperationModeControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		text := b.t("settings_menu.sub_mode_title")
@@ -352,12 +496,12 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 			{{Text: b.t("modes.vacuum_then_mop"), CallbackData: "set_mode:vacuum_then_mop"}},
 			{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}},
 		}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
+		_ = b.renderDashboard(text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 		return
 
 	case "sub_fan":
 		if !caps.Has(valetudo.CapFanSpeedControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		text := b.t("settings_menu.sub_fan_title")
@@ -366,12 +510,12 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 			{{Text: b.t("settings_menu.fan_high"), CallbackData: "set_fan:high"}, {Text: b.t("settings_menu.fan_max"), CallbackData: "set_fan:max"}},
 			{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}},
 		}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
+		_ = b.renderDashboard(text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 		return
 
 	case "sub_water":
 		if !caps.Has(valetudo.CapWaterUsageControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		text := b.t("settings_menu.sub_water_title")
@@ -379,12 +523,12 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 			{{Text: b.t("settings_menu.water_min"), CallbackData: "set_water:min"}, {Text: b.t("settings_menu.water_medium"), CallbackData: "set_water:medium"}, {Text: b.t("settings_menu.water_max"), CallbackData: "set_water:max"}},
 			{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}},
 		}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
+		_ = b.renderDashboard(text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 		return
 
 	case "sub_mopextend":
 		if !caps.Has(valetudo.CapMopExtensionControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		text := b.t("settings_menu.sub_mopextend_title")
@@ -392,12 +536,12 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 			{{Text: b.t("settings_menu.enable"), CallbackData: "set_mopextend:enable"}, {Text: b.t("settings_menu.disable"), CallbackData: "set_mopextend:disable"}},
 			{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}},
 		}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
+		_ = b.renderDashboard(text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 		return
 
 	case "sub_lang":
 		text, markup := b.getLanguageMenu()
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, text, markup)
+		_ = b.renderDashboard(text, markup)
 		return
 	}
 
@@ -409,70 +553,67 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 
 		text, markup := b.getSettingsMainMenu()
 		notice := fmt.Sprintf(b.t("settings_menu.lang_updated"), i18n.LocaleName(newLocale))
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, notice+"\n\n"+text, markup)
-
-		// Обновляем нижнюю клавиатуру на новом языке
-		_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, notice, b.cfg.IsDNDActive(), b.getMainMenuMarkup())
+		_ = b.renderDashboard(notice+"\n\n"+text, markup)
 		return
 	}
 
-	// --- Установка самих настроек ---
+	// --- Установка настроек ---
 	if strings.HasPrefix(data, "set_mode:") {
 		if !caps.Has(valetudo.CapOperationModeControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		val := strings.TrimPrefix(data, "set_mode:")
 		_ = b.val.SetOperationMode(val)
 		text, markup := b.getSettingsMainMenu()
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, fmt.Sprintf(b.t("settings_menu.setting_updated"), b.formatModeTitle(val), text), markup)
+		_ = b.renderDashboard(fmt.Sprintf(b.t("settings_menu.setting_updated"), b.formatModeTitle(val), text), markup)
 		return
 	}
 	if strings.HasPrefix(data, "set_fan:") {
 		if !caps.Has(valetudo.CapFanSpeedControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		val := strings.TrimPrefix(data, "set_fan:")
 		_ = b.val.SetPreset("FanSpeedControlCapability", val)
 		text, markup := b.getSettingsMainMenu()
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, fmt.Sprintf(b.t("settings_menu.setting_updated"), val, text), markup)
+		_ = b.renderDashboard(fmt.Sprintf(b.t("settings_menu.setting_updated"), val, text), markup)
 		return
 	}
 	if strings.HasPrefix(data, "set_water:") {
 		if !caps.Has(valetudo.CapWaterUsageControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		val := strings.TrimPrefix(data, "set_water:")
 		_ = b.val.SetPreset("WaterUsageControlCapability", val)
 		text, markup := b.getSettingsMainMenu()
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, fmt.Sprintf(b.t("settings_menu.setting_updated"), val, text), markup)
+		_ = b.renderDashboard(fmt.Sprintf(b.t("settings_menu.setting_updated"), val, text), markup)
 		return
 	}
 	if strings.HasPrefix(data, "set_wash_temp:") {
 		if !caps.Has(valetudo.CapMopDockMopWashTemperatureControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		val := strings.TrimPrefix(data, "set_wash_temp:")
 		_ = b.val.SetMopWashTemperature(val)
-		b.sendStationMenu(cb.Message.MessageID)
+		b.sendStationMenu()
 		return
 	}
 	if strings.HasPrefix(data, "set_dry_time:") {
 		if !caps.Has(valetudo.CapMopDockMopDryingTimeControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		val := strings.TrimPrefix(data, "set_dry_time:")
 		_ = b.val.SetMopDryingTime(val)
-		b.sendStationMenu(cb.Message.MessageID)
+		b.sendStationMenu()
 		return
 	}
 	if strings.HasPrefix(data, "set_mopextend:") {
 		if !caps.Has(valetudo.CapMopExtensionControl) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		val := strings.TrimPrefix(data, "set_mopextend:")
@@ -482,14 +623,14 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		if val != "enable" {
 			status = b.t("settings_menu.mopextend_disabled")
 		}
-		_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, fmt.Sprintf(b.t("settings_menu.setting_updated"), status, text), markup)
+		_ = b.renderDashboard(fmt.Sprintf(b.t("settings_menu.setting_updated"), status, text), markup)
 		return
 	}
 
 	// --- Сброс расходников ---
 	if strings.HasPrefix(data, "reset_cons:") {
 		if !caps.Has(valetudo.CapConsumableMonitoring) {
-			_ = b.tg.EditMessage(b.cfg.AllowedChatID, cb.Message.MessageID, b.t("main_menu.not_supported"), nil)
+			_ = b.renderDashboard(b.t("main_menu.not_supported"), nil)
 			return
 		}
 		parts := strings.Split(data, ":")
@@ -497,9 +638,8 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 			cType, cSubType := parts[1], parts[2]
 			_ = b.val.ResetConsumable(cType, cSubType)
 
-			// Даем Valetudo 300мс на обновление атрибутов перед отрисовкой меню
 			time.Sleep(300 * time.Millisecond)
-			b.sendConsumablesMenu(cb.Message.MessageID)
+			b.sendConsumablesMenu()
 		}
 		return
 	}

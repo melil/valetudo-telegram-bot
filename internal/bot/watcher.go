@@ -51,6 +51,8 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 			}
 		}
 
+		b.SetRobotStatus(currentStatus, currentErrorFlag)
+
 		if firstRun {
 			lastStatus = currentStatus
 			lastErrorFlag = currentErrorFlag
@@ -62,6 +64,7 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 
 		if currentStatus == "error" && (lastStatus != "error" || currentErrorFlag != lastErrorFlag) {
 			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("watcher.err_robot", currentStatus, currentErrorFlag), b.cfg.IsDNDActive(), nil)
+			b.sendMainDashboard()
 		}
 
 		if (lastStatus == "cleaning" || lastStatus == "returning") && currentStatus == "docked" {
@@ -75,6 +78,8 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 				_ = b.tg.SendPhoto(b.cfg.AllowedChatID, mapReader, msg, b.cfg.IsDNDActive())
 				_ = mapReader.Close()
 			}
+			// Фоново обновляем дашборд на статус "На базе"
+			b.sendMainDashboard()
 		}
 
 		if currentCleanWater != "ok" && lastCleanWater == "ok" {

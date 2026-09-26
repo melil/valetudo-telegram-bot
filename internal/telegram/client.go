@@ -62,6 +62,9 @@ func (c *Client) SendPayload(payload SendMessagePayload) (int, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return 0, err
 	}
+	if !res.OK {
+		return 0, fmt.Errorf("telegram sendMessage error: %s", res.Description)
+	}
 	return res.Result.MessageID, nil
 }
 
@@ -94,8 +97,54 @@ func (c *Client) EditMessage(chatID int64, msgID int, text string, markup *Inlin
 		return err
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
+
+	var res BaseResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return err
+	}
+	if !res.OK {
+		if strings.Contains(res.Description, "message is not modified") {
+			return nil
+		}
+		return fmt.Errorf("telegram editMessageText error: %s", res.Description)
+	}
 	return nil
+}
+
+func (c *Client) DeleteMessage(chatID int64, msgID int) error {
+	if msgID == 0 {
+		return nil
+	}
+	url := fmt.Sprintf("%s/deleteMessage?chat_id=%d&message_id=%d", c.apiURL, chatID, msgID)
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var res BaseResponse
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return err
+	}
+	if !res.OK {
+		return fmt.Errorf("telegram deleteMessage error: %s", res.Description)
+	}
+	return nil
+}
+
+func (c *Client) RemoveReplyKeyboard(chatID int64, text string) error {
+	payload := SendMessagePayload{
+		ChatID:              chatID,
+		Text:                text,
+		ParseMode:           "HTML",
+		ReplyMarkup:         ReplyKeyboardRemove{RemoveKeyboard: true},
+		DisableNotification: true,
+	}
+	msgID, err := c.SendPayload(payload)
+	if err == nil && msgID != 0 {
+		_ = c.DeleteMessage(chatID, msgID)
+	}
+	return err
 }
 
 func (c *Client) AnswerCallbackQuery(callbackQueryID string) error {

@@ -20,8 +20,15 @@ type Bot struct {
 	capsMu sync.RWMutex
 	caps   *valetudo.CapabilitySet
 
+	statusMu   sync.RWMutex
+	lastStatus string
+	lastFlag   string
+
 	langMu sync.RWMutex
 	lang   i18n.Locale
+
+	dashMu         sync.Mutex
+	dashboardMsgID int
 
 	wizardMu      sync.Mutex
 	activeWizards map[int64]*WizardSession
@@ -33,9 +40,42 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client) *Bot {
 		tg:            tg,
 		val:           val,
 		caps:          valetudo.NewCapabilitySet(nil),
+		lastStatus:    "docked",
+		lastFlag:      "none",
 		lang:          i18n.NormalizeLocale(cfg.DefaultLang),
 		activeWizards: make(map[int64]*WizardSession),
 	}
+}
+
+func (b *Bot) GetRobotStatus() (string, string) {
+	b.statusMu.RLock()
+	s, f := b.lastStatus, b.lastFlag
+	b.statusMu.RUnlock()
+	if s != "" {
+		return s, f
+	}
+	st, err := b.val.GetStatus()
+	if err == nil {
+		b.SetRobotStatus(st.Value, st.Flag)
+		return st.Value, st.Flag
+	}
+	return "idle", "none"
+}
+
+func (b *Bot) SetRobotStatus(status, flag string) {
+	b.statusMu.Lock()
+	b.lastStatus = status
+	b.lastFlag = flag
+	b.statusMu.Unlock()
+}
+
+func (b *Bot) RefreshRobotStatus() (string, string) {
+	st, err := b.val.GetStatus()
+	if err == nil {
+		b.SetRobotStatus(st.Value, st.Flag)
+		return st.Value, st.Flag
+	}
+	return b.GetRobotStatus()
 }
 
 func (b *Bot) Caps() *valetudo.CapabilitySet {
@@ -76,6 +116,46 @@ func (b *Bot) t(key string, args ...any) string {
 	return i18n.T(b.GetLang(), key, args...)
 }
 
+func (b *Bot) GetDashboardMsgID() int {
+	b.dashMu.Lock()
+	defer b.dashMu.Unlock()
+	return b.dashboardMsgID
+}
+
+func (b *Bot) SetDashboardMsgID(msgID int) {
+	b.dashMu.Lock()
+	defer b.dashMu.Unlock()
+	b.dashboardMsgID = msgID
+}
+
+func (b *Bot) renderDashboard(text string, markup *telegram.InlineKeyboardMarkup) error {
+	b.dashMu.Lock()
+	msgID := b.dashboardMsgID
+	b.dashMu.Unlock()
+
+	if msgID != 0 {
+		err := b.tg.EditMessage(b.cfg.AllowedChatID, msgID, text, markup)
+		if err == nil {
+			return nil
+		}
+		log.Printf("renderDashboard: не удалось обновить сообщение %d (%v), создаю новое...", msgID, err)
+	}
+
+	newID, err := b.tg.SendPayload(telegram.SendMessagePayload{
+		ChatID:              b.cfg.AllowedChatID,
+		Text:                text,
+		ParseMode:           "HTML",
+		ReplyMarkup:         markup,
+		DisableNotification: b.cfg.IsDNDActive(),
+	})
+	if err == nil && newID != 0 {
+		b.dashMu.Lock()
+		b.dashboardMsgID = newID
+		b.dashMu.Unlock()
+	}
+	return err
+}
+
 func (b *Bot) Run(ctx context.Context) error {
 	log.Printf("Бот запущен. Слушаю сообщения для ChatID: %d\n", b.cfg.AllowedChatID)
 
@@ -106,7 +186,7 @@ func (b *Bot) Run(ctx context.Context) error {
 			offset = update.UpdateID + 1
 
 			if update.Message != nil && update.Message.Chat.ID == b.cfg.AllowedChatID {
-				b.handleTextCommand(update.Message.Text)
+				b.handleTextCommand(update.Message)
 			}
 
 			if update.CallbackQuery != nil && update.CallbackQuery.From.ID == b.cfg.AllowedChatID {

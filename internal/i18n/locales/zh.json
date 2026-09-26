@@ -7,24 +7,33 @@
     "rooms": "🗺 房间",
     "locate": "📢 寻找机器人",
     "full_clean": "🚀 全局清扫",
+    "resume_cleaning": "▶️ 继续清扫",
+    "pause_cleaning": "⏸ 暂停",
+    "stop_robot": "🛑 停止",
+    "go_home": "🏠 回充",
     "ready": "🕹 <b>扫地机器人控制已就绪：</b>",
     "unrecognized": "未能识别该指令，请使用菜单选项。",
-    "not_supported": "⚠️ 您的扫地机型号不支持此功能。"
+    "not_supported": "⚠️ 您的扫地机型号不支持此功能。",
+    "btn_back_main": "⬅️ 主菜单"
   },
   "robot_menu": {
     "title": "🤖 <b>机器人控制</b>\n请选择操作：",
     "btn_start": "🚀 开始 (全屋清扫)",
+    "btn_resume": "▶️ 继续",
     "btn_pause": "⏸ 暂停",
+    "btn_stop": "🛑 停止",
     "btn_home": "🏠 回充",
     "btn_telemetry": "🏎 运行日志",
     "btn_consumables": "🧹 耗材状态",
     "btn_settings": "⚙️ 设置",
     "btn_back": "⬅️ 返回机器人菜单",
     "started": "🚀 <b>已启动全屋清扫。</b>",
+    "resumed": "▶️ <b>清扫已继续。</b>",
     "paused": "⏸ <b>机器人已暂停。</b>",
     "returning": "🏠 <b>机器人正在返回基站。</b>",
     "located": "🔊 正在发出声音提示！",
-    "stopped": "🛑 清扫已中断，机器人正在返回基站。"
+    "stopped": "🛑 清扫已中断，机器人正在返回基站。",
+    "stopped_inplace": "🛑 <b>机器人已就地停止。</b>"
   },
   "station_menu": {
     "title": "🏠 <b>基站控制</b>\n请选择操作：",

@@ -29,13 +29,23 @@ type Response struct {
 }
 
 type MsgResponse struct {
-	OK     bool    `json:"ok"`
-	Result Message `json:"result"`
+	OK          bool    `json:"ok"`
+	Result      Message `json:"result"`
+	Description string  `json:"description,omitempty"`
+}
+
+type BaseResponse struct {
+	OK          bool   `json:"ok"`
+	Description string `json:"description,omitempty"`
 }
 
 type ReplyKeyboardMarkup struct {
 	Keyboard       [][]string `json:"keyboard"`
 	ResizeKeyboard bool       `json:"resize_keyboard"`
+}
+
+type ReplyKeyboardRemove struct {
+	RemoveKeyboard bool `json:"remove_keyboard"`
 }
 
 type InlineKeyboardButton struct {
