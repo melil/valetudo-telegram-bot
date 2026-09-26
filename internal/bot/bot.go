@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"tgbot/internal/config"
+	"tgbot/internal/database"
 	"tgbot/internal/i18n"
 	"tgbot/internal/telegram"
 	"tgbot/internal/valetudo"
@@ -17,6 +18,7 @@ type Bot struct {
 	cfg *config.Config
 	tg  *telegram.Client
 	val *valetudo.Client
+	db  *database.DB
 
 	capsMu sync.RWMutex
 	caps   *valetudo.CapabilitySet
@@ -29,7 +31,9 @@ type Bot struct {
 	lang   i18n.Locale
 
 	dashMu         sync.Mutex
+	dashboards     map[int64]int
 	dashboardMsgID int
+	activeChatID   int64
 
 	wizardMu      sync.Mutex
 	activeWizards map[int64]*WizardSession
@@ -38,20 +42,31 @@ type Bot struct {
 	session    CleaningSession
 	lastReport *CleaningReport
 
+	authReqMu       sync.Mutex
+	lastAuthReqTime map[int64]time.Time
+
 	startTime time.Time
 }
 
-func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client) *Bot {
+func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client, db ...*database.DB) *Bot {
+	var userDB *database.DB
+	if len(db) > 0 {
+		userDB = db[0]
+	}
+
 	return &Bot{
-		cfg:           cfg,
-		tg:            tg,
-		val:           val,
-		caps:          valetudo.NewCapabilitySet(nil),
-		lastStatus:    "docked",
-		lastFlag:      "none",
-		lang:          i18n.NormalizeLocale(cfg.DefaultLang),
-		activeWizards: make(map[int64]*WizardSession),
-		startTime:     time.Now(),
+		cfg:             cfg,
+		tg:              tg,
+		val:             val,
+		db:              userDB,
+		caps:            valetudo.NewCapabilitySet(nil),
+		lastStatus:      "docked",
+		lastFlag:        "none",
+		lang:            i18n.NormalizeLocale(cfg.DefaultLang),
+		dashboards:      make(map[int64]int),
+		activeWizards:   make(map[int64]*WizardSession),
+		lastAuthReqTime: make(map[int64]time.Time),
+		startTime:       time.Now(),
 	}
 }
 
@@ -181,33 +196,73 @@ func (b *Bot) t(key string, args ...any) string {
 	return i18n.T(b.GetLang(), key, args...)
 }
 
-func (b *Bot) GetDashboardMsgID() int {
+func (b *Bot) SetActiveChatID(chatID int64) {
 	b.dashMu.Lock()
 	defer b.dashMu.Unlock()
+	b.activeChatID = chatID
+}
+
+func (b *Bot) GetActiveChatID() int64 {
+	b.dashMu.Lock()
+	defer b.dashMu.Unlock()
+	if b.activeChatID != 0 {
+		return b.activeChatID
+	}
+	return b.cfg.AllowedChatID
+}
+
+func (b *Bot) GetDashboardMsgID(chatID ...int64) int {
+	b.dashMu.Lock()
+	defer b.dashMu.Unlock()
+	targetID := b.cfg.AllowedChatID
+	if len(chatID) > 0 && chatID[0] != 0 {
+		targetID = chatID[0]
+	} else if b.activeChatID != 0 {
+		targetID = b.activeChatID
+	}
+	if id, ok := b.dashboards[targetID]; ok && id != 0 {
+		return id
+	}
 	return b.dashboardMsgID
 }
 
 func (b *Bot) SetDashboardMsgID(msgID int) {
+	b.SetDashboardMsgIDForChat(b.GetActiveChatID(), msgID)
+}
+
+func (b *Bot) SetDashboardMsgIDForChat(chatID int64, msgID int) {
 	b.dashMu.Lock()
 	defer b.dashMu.Unlock()
+	b.dashboards[chatID] = msgID
 	b.dashboardMsgID = msgID
 }
 
 func (b *Bot) renderDashboard(text string, markup *telegram.InlineKeyboardMarkup) error {
+	return b.renderDashboardForChat(b.GetActiveChatID(), text, markup)
+}
+
+func (b *Bot) renderDashboardForChat(chatID int64, text string, markup *telegram.InlineKeyboardMarkup) error {
+	if chatID == 0 {
+		chatID = b.cfg.AllowedChatID
+	}
+
 	b.dashMu.Lock()
-	msgID := b.dashboardMsgID
+	msgID := b.dashboards[chatID]
+	if msgID == 0 && chatID == b.cfg.AllowedChatID {
+		msgID = b.dashboardMsgID
+	}
 	b.dashMu.Unlock()
 
 	if msgID != 0 {
-		err := b.tg.EditMessage(b.cfg.AllowedChatID, msgID, text, markup)
+		err := b.tg.EditMessage(chatID, msgID, text, markup)
 		if err == nil {
 			return nil
 		}
-		log.Printf("renderDashboard: не удалось обновить сообщение %d (%v), создаю новое...", msgID, err)
+		log.Printf("renderDashboard: не удалось обновить сообщение %d в чате %d (%v), создаю новое...", msgID, chatID, err)
 	}
 
 	newID, err := b.tg.SendPayload(telegram.SendMessagePayload{
-		ChatID:              b.cfg.AllowedChatID,
+		ChatID:              chatID,
 		Text:                text,
 		ParseMode:           "HTML",
 		ReplyMarkup:         markup,
@@ -215,14 +270,17 @@ func (b *Bot) renderDashboard(text string, markup *telegram.InlineKeyboardMarkup
 	})
 	if err == nil && newID != 0 {
 		b.dashMu.Lock()
-		b.dashboardMsgID = newID
+		b.dashboards[chatID] = newID
+		if chatID == b.cfg.AllowedChatID {
+			b.dashboardMsgID = newID
+		}
 		b.dashMu.Unlock()
 	}
 	return err
 }
 
 func (b *Bot) Run(ctx context.Context) error {
-	log.Printf("Бот запущен. Слушаю сообщения для ChatID: %d\n", b.cfg.AllowedChatID)
+	log.Printf("Бот запущен. Слушаю входящие обновления Telegram...\n")
 
 	if err := b.LoadCapabilities(); err != nil {
 		log.Printf("Внимание: не удалось загрузить возможности робота: %v", err)
@@ -250,12 +308,26 @@ func (b *Bot) Run(ctx context.Context) error {
 		for _, update := range updates {
 			offset = update.UpdateID + 1
 
-			if update.Message != nil && update.Message.Chat.ID == b.cfg.AllowedChatID {
-				b.handleTextCommand(update.Message)
+			if update.Message != nil {
+				if b.isUserAllowed(update.Message.Chat.ID) {
+					b.handleTextCommand(update.Message)
+				} else {
+					b.handleUnauthorizedAccess(update.Message)
+				}
 			}
 
-			if update.CallbackQuery != nil && update.CallbackQuery.From.ID == b.cfg.AllowedChatID {
-				b.handleCallback(update.CallbackQuery)
+			if update.CallbackQuery != nil {
+				// 1. Проверяем действия авторизации администратором (кнопки Разрешить / Отклонить)
+				if b.handleAuthCallback(update.CallbackQuery) {
+					continue
+				}
+
+				// 2. Для остальных кнопок проверяем, разрешен ли доступ пользователю
+				if b.isUserAllowed(update.CallbackQuery.From.ID) {
+					b.handleCallback(update.CallbackQuery)
+				} else {
+					_ = b.tg.AnswerCallbackQueryAlert(update.CallbackQuery.ID, "⛔ У вас нет доступа.", true)
+				}
 			}
 		}
 	}

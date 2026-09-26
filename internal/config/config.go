@@ -12,6 +12,7 @@ import (
 type Config struct {
 	ValetudoBaseURL string
 	BotToken        string
+	DBPath          string
 	AllowedChatID   int64
 	TgAPIBase       string
 	PollTimeoutSec  int
@@ -32,10 +33,17 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("BOT_TOKEN is required")
 	}
 
-	chatIDStr := os.Getenv("CHAT_ID")
-	chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
-	if err != nil || chatID == 0 {
-		return nil, fmt.Errorf("valid numeric CHAT_ID is required")
+	var chatID int64
+	if chatIDStr := os.Getenv("CHAT_ID"); chatIDStr != "" {
+		parsed, err := strconv.ParseInt(chatIDStr, 10, 64)
+		if err == nil {
+			chatID = parsed
+		}
+	}
+
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "bot.db"
 	}
 
 	valetudoURL := os.Getenv("VALETUDO_BASE_URL")
@@ -58,6 +66,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		ValetudoBaseURL: valetudoURL,
 		BotToken:        token,
+		DBPath:          dbPath,
 		AllowedChatID:   chatID,
 		TgAPIBase:       tgBase,
 		PollTimeoutSec:  25,

@@ -65,6 +65,8 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 	if msg == nil {
 		return
 	}
+	b.SetActiveChatID(msg.Chat.ID)
+
 	// Удаляем входящее сообщение пользователя из чата, чтобы чат оставался чистым
 	_ = b.tg.DeleteMessage(msg.Chat.ID, msg.MessageID)
 
@@ -73,7 +75,7 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 	// Если пришла команда /start, отменяем активные визарды
 	if cleanText == "/start" {
 		b.wizardMu.Lock()
-		delete(b.activeWizards, b.cfg.AllowedChatID)
+		delete(b.activeWizards, msg.Chat.ID)
 		b.wizardMu.Unlock()
 	}
 
@@ -83,12 +85,18 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 	// Поэтому при любой текстовой команде сбрасываем dashboardMsgID и удаляем старое сообщение (если оно еще есть),
 	// гарантируя отправку нового свежего сообщения с инлайн-кнопками внизу чата.
 	b.dashMu.Lock()
-	oldDashID := b.dashboardMsgID
-	b.dashboardMsgID = 0
+	oldDashID := b.dashboards[msg.Chat.ID]
+	if oldDashID == 0 && msg.Chat.ID == b.cfg.AllowedChatID {
+		oldDashID = b.dashboardMsgID
+	}
+	b.dashboards[msg.Chat.ID] = 0
+	if msg.Chat.ID == b.cfg.AllowedChatID {
+		b.dashboardMsgID = 0
+	}
 	b.dashMu.Unlock()
 
 	if oldDashID != 0 {
-		_ = b.tg.DeleteMessage(b.cfg.AllowedChatID, oldDashID)
+		_ = b.tg.DeleteMessage(msg.Chat.ID, oldDashID)
 	}
 
 	caps := b.Caps()
@@ -270,6 +278,8 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 }
 
 func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
+	b.SetActiveChatID(cb.From.ID)
+
 	data := cb.Data
 	if data == "noop" {
 		_ = b.tg.AnswerCallbackQuery(cb.ID)
@@ -278,7 +288,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 
 	// Синхронизируем dashboardMsgID с сообщением, на котором нажали инлайн-кнопку
 	if cb.Message != nil && cb.Message.MessageID != 0 {
-		b.SetDashboardMsgID(cb.Message.MessageID)
+		b.SetDashboardMsgIDForChat(cb.From.ID, cb.Message.MessageID)
 	}
 
 	if data == "view_last_report" {

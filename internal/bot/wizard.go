@@ -91,7 +91,7 @@ func (b *Bot) startCleaningWizard() {
 	}
 
 	b.wizardMu.Lock()
-	b.activeWizards[b.cfg.AllowedChatID] = session
+	b.activeWizards[b.GetActiveChatID()] = session
 	b.wizardMu.Unlock()
 
 	var text string
@@ -224,7 +224,7 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 	}
 
 	b.wizardMu.Lock()
-	ws, exists := b.activeWizards[b.cfg.AllowedChatID]
+	ws, exists := b.activeWizards[cb.From.ID]
 	b.wizardMu.Unlock()
 
 	if !exists || ws == nil {
@@ -243,7 +243,7 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 	switch {
 	case data == "wiz_cancel":
 		b.wizardMu.Lock()
-		delete(b.activeWizards, b.cfg.AllowedChatID)
+		delete(b.activeWizards, cb.From.ID)
 		b.wizardMu.Unlock()
 		b.sendMainDashboard()
 
@@ -297,7 +297,7 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 		}
 
 		b.wizardMu.Lock()
-		delete(b.activeWizards, b.cfg.AllowedChatID)
+		delete(b.activeWizards, cb.From.ID)
 		b.wizardMu.Unlock()
 
 		if ws.Mode != "" && b.Caps().Has(valetudo.CapOperationModeControl) {

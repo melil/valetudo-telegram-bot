@@ -1,7 +1,9 @@
 package bot
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"log"
 	"time"
 )
@@ -78,8 +80,8 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		}
 
 		if currentStatus == "error" && (lastStatus != "error" || currentErrorFlag != lastErrorFlag) {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("watcher.err_robot", currentStatus, currentErrorFlag), b.cfg.IsDNDActive(), nil)
-			b.sendMainDashboard()
+			b.broadcastTextMessage(b.t("watcher.err_robot", currentStatus, currentErrorFlag), b.cfg.IsDNDActive())
+			b.broadcastMainDashboard()
 		}
 
 		if (lastStatus == "cleaning" || lastStatus == "returning" || b.IsSessionActive()) && currentStatus == "docked" {
@@ -88,33 +90,43 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 
 			sent := false
 			mapReader, err := b.val.GetMapReader()
+			var mapData []byte
 			if err == nil {
-				if errPhoto := b.tg.SendPhoto(b.cfg.AllowedChatID, mapReader, msg, b.cfg.IsDNDActive()); errPhoto == nil {
-					sent = true
-				} else {
-					log.Printf("statusWatcher: не удалось отправить фото карты (%v), отправляю текстом...", errPhoto)
-				}
+				mapData, _ = io.ReadAll(mapReader)
 				_ = mapReader.Close()
 			} else {
 				log.Printf("statusWatcher: карта недоступна как изображение (%v), отправляю текстовый отчет...", err)
 			}
 
-			// Если фото карты недоступно или произошла ошибка отправки фото, отправляем текстовый отчет
-			if !sent {
-				if _, errText := b.tg.SendTextMessage(b.cfg.AllowedChatID, msg, b.cfg.IsDNDActive(), nil); errText != nil {
-					log.Printf("statusWatcher: не удалось отправить текстовый отчет об уборке: %v", errText)
+			userIDs := b.getAllUserChatIDs()
+			if len(mapData) > 0 {
+				for _, chatID := range userIDs {
+					if errPhoto := b.tg.SendPhoto(chatID, bytes.NewReader(mapData), msg, b.cfg.IsDNDActive()); errPhoto == nil {
+						sent = true
+					} else {
+						log.Printf("statusWatcher: не удалось отправить фото карты пользователю %d (%v)", chatID, errPhoto)
+					}
 				}
 			}
 
-			// Фоново обновляем дашборд на статус "На базе" с кнопкой отчета
-			b.sendMainDashboard()
+			// Если фото карты недоступно или произошла ошибка отправки фото, отправляем текстовый отчет
+			if !sent {
+				for _, chatID := range userIDs {
+					if _, errText := b.tg.SendTextMessage(chatID, msg, b.cfg.IsDNDActive(), nil); errText != nil {
+						log.Printf("statusWatcher: не удалось отправить текстовый отчет об уборке пользователю %d: %v", chatID, errText)
+					}
+				}
+			}
+
+			// Фоново обновляем дашборд на статус "На базе" с кнопкой отчета для всех пользователей
+			b.broadcastMainDashboard()
 		}
 
 		if currentCleanWater != "ok" && lastCleanWater == "ok" {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("watcher.clean_water_low"), b.cfg.IsDNDActive(), nil)
+			b.broadcastTextMessage(b.t("watcher.clean_water_low"), b.cfg.IsDNDActive())
 		}
 		if currentDirtyWater != "ok" && lastDirtyWater == "ok" {
-			_, _ = b.tg.SendTextMessage(b.cfg.AllowedChatID, b.t("watcher.dirty_water_full"), b.cfg.IsDNDActive(), nil)
+			b.broadcastTextMessage(b.t("watcher.dirty_water_full"), b.cfg.IsDNDActive())
 		}
 
 		lastStatus = currentStatus
