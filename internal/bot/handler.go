@@ -69,6 +69,28 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 	_ = b.tg.DeleteMessage(msg.Chat.ID, msg.MessageID)
 
 	cleanText := strings.TrimSpace(msg.Text)
+
+	// Если пришла команда /start, отменяем активные визарды
+	if cleanText == "/start" {
+		b.wizardMu.Lock()
+		delete(b.activeWizards, b.cfg.AllowedChatID)
+		b.wizardMu.Unlock()
+	}
+
+	// Пользователь ввел текстовую команду (например, /start после очистки истории, /robot или /resources).
+	// Если история чата была очищена в Telegram, старое сообщение дашборда на клиенте удалено,
+	// но API Telegram может возвращать успех на editMessageText в пустоту.
+	// Поэтому при любой текстовой команде сбрасываем dashboardMsgID и удаляем старое сообщение (если оно еще есть),
+	// гарантируя отправку нового свежего сообщения с инлайн-кнопками внизу чата.
+	b.dashMu.Lock()
+	oldDashID := b.dashboardMsgID
+	b.dashboardMsgID = 0
+	b.dashMu.Unlock()
+
+	if oldDashID != 0 {
+		_ = b.tg.DeleteMessage(b.cfg.AllowedChatID, oldDashID)
+	}
+
 	caps := b.Caps()
 
 	switch {
@@ -252,6 +274,11 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 	if data == "noop" {
 		_ = b.tg.AnswerCallbackQuery(cb.ID)
 		return
+	}
+
+	// Синхронизируем dashboardMsgID с сообщением, на котором нажали инлайн-кнопку
+	if cb.Message != nil && cb.Message.MessageID != 0 {
+		b.SetDashboardMsgID(cb.Message.MessageID)
 	}
 
 	if data == "view_last_report" {
