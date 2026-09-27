@@ -74,6 +74,8 @@
     "btn_mopextend": "🦵 Ausfahrbarer Mopp (MopExtend)",
     "btn_lang": "🌐 Sprache / Language",
     "btn_users": "👥 Benutzer",
+    "btn_notifications": "🔔 Benachrichtigungen",
+    "btn_audit": "📜 Aktionsprotokoll",
     "btn_back": "⬅️ Zurück zu Einstellungen",
     "sub_mode_title": "🛠 <b>Standard-Reinigungsmodus wählen:</b>",
     "sub_fan_title": "💨 <b>Standard-Saugleistung wählen:</b>",
@@ -264,5 +266,33 @@
     "approved_user": "🎉 <b>Zugriff gewährt!</b>\nEin Administrator hat Ihnen Zugriff auf den Saugroboter gewährt.\nDrücken Sie /start, um das Menü zu öffnen.",
     "rejected_admin": "❌ <b>Zugriffsanfrage abgelehnt</b>\nAnfrage für Chat-ID <code>%d</code> wurde abgelehnt.",
     "rejected_user": "❌ <b>Zugriff verweigert.</b>\nEin Administrator hat Ihre Zugriffsanfrage abgelehnt."
+  },
+  "notifications": {
+    "title": "🔔 <b>Benachrichtigungseinstellungen</b>\nWählen Sie die Ereignisse aus, über die Sie benachrichtigt werden möchten:",
+    "status_on": "Ein ✅",
+    "status_off": "Aus ❌",
+    "btn_errors": "⚠️ Fehler & Warnungen",
+    "btn_reports": "📊 Reinigungsberichte",
+    "btn_station": "💧 Wassertanks"
+  },
+  "audit": {
+    "title": "📜 <b>Aktuelles Aktionsprotokoll</b>",
+    "empty": "📜 <b>Das Aktionsprotokoll ist leer.</b>",
+    "btn_refresh": "🔄 Aktualisieren",
+    "action_start": "Reinigung gestartet",
+    "action_pause": "Reinigung pausiert",
+    "action_resume": "Reinigung fortgesetzt",
+    "action_stop": "Reinigung gestoppt",
+    "action_home": "Zur Basis zurückkehren",
+    "action_locate": "Roboter orten",
+    "action_wizard": "Zimmerreinigung (Assistent)",
+    "action_fan": "Saugleistung",
+    "action_water": "Wasserdurchfluss",
+    "action_mode": "Reinigungsmodus",
+    "action_lang": "Sprache geändert",
+    "action_mopextend": "MopExtend",
+    "action_user_approved": "Benutzer genehmigt",
+    "action_user_rejected": "Anfrage abgelehnt",
+    "action_user_deleted": "Benutzer gelöscht"
   }
 }

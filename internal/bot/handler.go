@@ -97,6 +97,10 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 	}
 	b.dashMu.Unlock()
 
+	if b.db != nil {
+		_ = b.db.SetUserDashboardMsgID(msg.Chat.ID, 0)
+	}
+
 	if oldDashID != 0 {
 		_ = b.tg.DeleteMessage(msg.Chat.ID, oldDashID)
 	}
@@ -131,6 +135,7 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 		}
 		_ = b.val.TriggerAction("start")
 		b.SetRobotStatus("cleaning", "none")
+		b.LogAction(msg.Chat.ID, "resume_cleaning", "")
 		b.sendMainDashboard()
 
 	case cleanText == "/stop" || i18n.Matches(cleanText, "main_menu.stop_robot") || i18n.Matches(cleanText, "main_menu.stop_cleaning") || i18n.Matches(cleanText, "robot_menu.btn_stop"):
@@ -145,6 +150,7 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 		}
 		_ = b.val.TriggerAction("home")
 		b.SetRobotStatus("returning", "none")
+		b.LogAction(msg.Chat.ID, "stop_cleaning", "")
 		b.sendMainDashboard()
 
 	case cleanText == "/pause" || i18n.Matches(cleanText, "main_menu.pause_cleaning") || i18n.Matches(cleanText, "robot_menu.btn_pause"):
@@ -159,6 +165,7 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 		}
 		_ = b.val.TriggerAction("pause")
 		b.SetRobotStatus("paused", "resumable")
+		b.LogAction(msg.Chat.ID, "pause_cleaning", "")
 		b.sendMainDashboard()
 
 	case cleanText == "/home" || i18n.Matches(cleanText, "main_menu.go_home") || i18n.Matches(cleanText, "robot_menu.btn_home") || cleanText == "🏠 На базу" || cleanText == "🏠 Return Home" || cleanText == "🏠 Домой":
@@ -173,6 +180,7 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 		}
 		_ = b.val.TriggerAction("home")
 		b.SetRobotStatus("returning", "none")
+		b.LogAction(msg.Chat.ID, "go_home", "")
 		b.sendMainDashboard()
 
 	case cleanText == "/robot" || i18n.Matches(cleanText, "main_menu.robot"):
@@ -201,6 +209,7 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 			return
 		}
 		_ = b.val.TriggerLocate()
+		b.LogAction(msg.Chat.ID, "locate", "")
 		b.sendMainDashboard()
 
 	case cleanText == "/rooms" || i18n.Matches(cleanText, "main_menu.rooms"):
@@ -228,6 +237,15 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 		text, markup := b.getUsersMenu(msg.Chat.ID)
 		_ = b.renderDashboard(text, markup)
 
+	case cleanText == "/logs":
+		if !b.isUserAdmin(msg.Chat.ID) {
+			replyText := fmt.Sprintf("⛔ <b>У вас нет доступа к просмотру журнала действий.</b>\nВаш Chat ID: <code>%d</code>", msg.Chat.ID)
+			_, _ = b.tg.SendTextMessage(msg.Chat.ID, replyText, false, nil)
+			return
+		}
+		text, markup := b.getAuditLogMenu()
+		_ = b.renderDashboard(text, markup)
+
 	case cleanText == "/start_clean" || i18n.Matches(cleanText, "robot_menu.btn_start") || i18n.Matches(cleanText, "main_menu.full_clean") || cleanText == "🚀 Вся уборка" || cleanText == "🚀 Full Clean":
 		if !caps.Has(valetudo.CapBasicControl) {
 			markup := &telegram.InlineKeyboardMarkup{
@@ -240,6 +258,7 @@ func (b *Bot) handleTextCommand(msg *telegram.Message) {
 		}
 		_ = b.val.TriggerAction("start")
 		b.SetRobotStatus("cleaning", "none")
+		b.LogAction(msg.Chat.ID, "start_cleaning", "")
 		b.sendMainDashboard()
 
 	case cleanText == "/telemetry" || i18n.Matches(cleanText, "robot_menu.btn_telemetry"):
@@ -334,6 +353,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 			return
 		}
 		_ = b.val.TriggerLocate()
+		b.LogAction(cb.From.ID, "locate", "")
 		b.sendMainDashboard()
 		return
 	}
@@ -361,6 +381,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		_ = b.val.TriggerAction("start")
 		b.SetRobotStatus("cleaning", "none")
 		b.StartSession(nil, b.getBatteryLevel())
+		b.LogAction(cb.From.ID, "start_cleaning", "")
 		b.sendMainDashboard()
 		return
 	case "cmd_resume":
@@ -375,6 +396,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		_ = b.val.TriggerAction("start")
 		b.SetRobotStatus("cleaning", "none")
+		b.LogAction(cb.From.ID, "resume_cleaning", "")
 		b.sendMainDashboard()
 		return
 	case "cmd_pause":
@@ -389,6 +411,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		_ = b.val.TriggerAction("pause")
 		b.SetRobotStatus("paused", "resumable")
+		b.LogAction(cb.From.ID, "pause_cleaning", "")
 		b.sendMainDashboard()
 		return
 	case "cmd_stop":
@@ -403,6 +426,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		_ = b.val.TriggerAction("home")
 		b.SetRobotStatus("returning", "none")
+		b.LogAction(cb.From.ID, "stop_cleaning", "")
 		b.sendMainDashboard()
 		return
 	case "cmd_home":
@@ -417,6 +441,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		_ = b.val.TriggerAction("home")
 		b.SetRobotStatus("returning", "none")
+		b.LogAction(cb.From.ID, "go_home", "")
 		b.sendMainDashboard()
 		return
 	case "cmd_telemetry":
@@ -447,6 +472,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		_ = b.val.TriggerAction("home")
 		b.SetRobotStatus("returning", "none")
+		b.LogAction(cb.From.ID, "go_home", "")
 		b.sendStationMenu()
 		return
 	case "dock_empty":
@@ -606,12 +632,49 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		_ = b.renderDashboard(text, markup)
 		return
 
+	case "sub_notifications":
+		text, markup := b.getNotificationsMenu(cb.From.ID)
+		_ = b.renderDashboard(text, markup)
+		return
+
+	case "sub_audit":
+		if !b.isUserAdmin(cb.From.ID) {
+			_ = b.tg.AnswerCallbackQueryAlert(cb.ID, "⛔ Только администраторы имеют доступ к этому разделу.", true)
+			return
+		}
+		text, markup := b.getAuditLogMenu()
+		_ = b.renderDashboard(text, markup)
+		return
+
 	case "sub_users":
 		if !b.isUserAdmin(cb.From.ID) {
 			_ = b.tg.AnswerCallbackQueryAlert(cb.ID, "⛔ Только администраторы имеют доступ к этому разделу.", true)
 			return
 		}
 		text, markup := b.getUsersMenu(cb.From.ID)
+		_ = b.renderDashboard(text, markup)
+		return
+	}
+
+	// --- Переключение подписок на уведомления ---
+	if strings.HasPrefix(data, "toggle_notify:") {
+		prefType := strings.TrimPrefix(data, "toggle_notify:")
+		if b.db != nil {
+			u, err := b.db.GetUser(cb.From.ID)
+			current := true
+			if err == nil && u != nil {
+				switch prefType {
+				case "errors":
+					current = u.NotifyErrors
+				case "reports":
+					current = u.NotifyReports
+				case "station":
+					current = u.NotifyStation
+				}
+			}
+			_ = b.db.SetUserNotificationPref(cb.From.ID, prefType, !current)
+		}
+		text, markup := b.getNotificationsMenu(cb.From.ID)
 		_ = b.renderDashboard(text, markup)
 		return
 	}
@@ -662,6 +725,8 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		if targetUsername != "" {
 			userDisplay = "@" + targetUsername
 		}
+		b.LogAction(cb.From.ID, "user_deleted", userDisplay)
+
 		alertText := fmt.Sprintf(b.t("settings_menu.user_deleted"), userDisplay)
 		_ = b.tg.AnswerCallbackQueryAlert(cb.ID, alertText, false)
 
@@ -675,7 +740,13 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 	if strings.HasPrefix(data, "set_lang:") {
 		code := strings.TrimPrefix(data, "set_lang:")
 		newLocale := i18n.NormalizeLocale(code)
-		b.SetLang(newLocale)
+		if b.db != nil {
+			_ = b.db.SetUserLocale(cb.From.ID, string(newLocale))
+		}
+		if cb.From.ID == b.cfg.AllowedChatID || b.db == nil {
+			b.SetLang(newLocale)
+		}
+		b.LogAction(cb.From.ID, "set_lang", string(newLocale))
 
 		text, markup := b.getSettingsMainMenu()
 		notice := fmt.Sprintf(b.t("settings_menu.lang_updated"), i18n.LocaleName(newLocale))
@@ -691,6 +762,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		val := strings.TrimPrefix(data, "set_mode:")
 		_ = b.val.SetOperationMode(val)
+		b.LogAction(cb.From.ID, "set_mode", val)
 		text, markup := b.getSettingsMainMenu()
 		_ = b.renderDashboard(fmt.Sprintf(b.t("settings_menu.setting_updated"), b.formatModeTitle(val), text), markup)
 		return
@@ -702,6 +774,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		val := strings.TrimPrefix(data, "set_fan:")
 		_ = b.val.SetPreset("FanSpeedControlCapability", val)
+		b.LogAction(cb.From.ID, "set_fan", val)
 		text, markup := b.getSettingsMainMenu()
 		_ = b.renderDashboard(fmt.Sprintf(b.t("settings_menu.setting_updated"), val, text), markup)
 		return
@@ -713,6 +786,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		val := strings.TrimPrefix(data, "set_water:")
 		_ = b.val.SetPreset("WaterUsageControlCapability", val)
+		b.LogAction(cb.From.ID, "set_water", val)
 		text, markup := b.getSettingsMainMenu()
 		_ = b.renderDashboard(fmt.Sprintf(b.t("settings_menu.setting_updated"), val, text), markup)
 		return
@@ -744,6 +818,7 @@ func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
 		}
 		val := strings.TrimPrefix(data, "set_mopextend:")
 		_ = b.val.SetMopExtension(val == "enable")
+		b.LogAction(cb.From.ID, "set_mopextend", val)
 		text, markup := b.getSettingsMainMenu()
 		status := b.t("settings_menu.mopextend_enabled")
 		if val != "enable" {

@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"tgbot/internal/database"
@@ -282,9 +283,16 @@ func (b *Bot) getSettingsMainMenu() (string, *telegram.InlineKeyboardMarkup) {
 		{Text: b.t("settings_menu.btn_lang"), CallbackData: "sub_lang"},
 	})
 
+	if b.db != nil {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: b.t("settings_menu.btn_notifications"), CallbackData: "sub_notifications"},
+		})
+	}
+
 	if b.db != nil && b.isUserAdmin(b.GetActiveChatID()) {
 		rows = append(rows, []telegram.InlineKeyboardButton{
 			{Text: b.t("settings_menu.btn_users"), CallbackData: "sub_users"},
+			{Text: b.t("settings_menu.btn_audit"), CallbackData: "sub_audit"},
 		})
 	}
 
@@ -370,6 +378,145 @@ func (b *Bot) getLanguageMenu() (string, *telegram.InlineKeyboardMarkup) {
 	}
 	rows = append(rows, []telegram.InlineKeyboardButton{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}})
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func (b *Bot) getNotificationsMenu(chatID int64) (string, *telegram.InlineKeyboardMarkup) {
+	if b.db == nil {
+		text := "⚠️ База данных не подключена."
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}},
+			},
+		}
+		return text, markup
+	}
+
+	u, err := b.db.GetUser(chatID)
+	if err != nil || u == nil {
+		u = &database.User{NotifyErrors: true, NotifyReports: true, NotifyStation: true}
+	}
+
+	formatStatus := func(enabled bool) string {
+		if enabled {
+			return b.t("notifications.status_on")
+		}
+		return b.t("notifications.status_off")
+	}
+
+	text := b.t("notifications.title")
+	var rows [][]telegram.InlineKeyboardButton
+
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{
+			Text:         fmt.Sprintf("%s: %s", b.t("notifications.btn_errors"), formatStatus(u.NotifyErrors)),
+			CallbackData: "toggle_notify:errors",
+		},
+	})
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{
+			Text:         fmt.Sprintf("%s: %s", b.t("notifications.btn_reports"), formatStatus(u.NotifyReports)),
+			CallbackData: "toggle_notify:reports",
+		},
+	})
+	if b.Caps().HasStation() {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{
+				Text:         fmt.Sprintf("%s: %s", b.t("notifications.btn_station"), formatStatus(u.NotifyStation)),
+				CallbackData: "toggle_notify:station",
+			},
+		})
+	}
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"},
+	})
+
+	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func (b *Bot) getAuditLogMenu() (string, *telegram.InlineKeyboardMarkup) {
+	if b.db == nil {
+		text := "⚠️ База данных не подключена."
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}},
+			},
+		}
+		return text, markup
+	}
+
+	logs, err := b.db.GetRecentAuditLogs(10)
+	if err != nil || len(logs) == 0 {
+		text := b.t("audit.empty")
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"}},
+			},
+		}
+		return text, markup
+	}
+
+	text := b.t("audit.title") + "\n\n"
+	for _, l := range logs {
+		userStr := "ID " + strconv.FormatInt(l.ChatID, 10)
+		if l.Username != "" {
+			userStr = "@" + l.Username
+		}
+		timeStr := l.CreatedAt.Local().Format("02.01 15:04")
+		text += fmt.Sprintf("• <code>%s</code> <b>%s</b>: %s\n", timeStr, userStr, b.formatActionTitle(l.Action, l.Details))
+	}
+
+	markup := &telegram.InlineKeyboardMarkup{
+		InlineKeyboard: [][]telegram.InlineKeyboardButton{
+			{
+				{Text: b.t("audit.btn_refresh"), CallbackData: "sub_audit"},
+				{Text: b.t("settings_menu.btn_back"), CallbackData: "menu_settings"},
+			},
+		},
+	}
+	return text, markup
+}
+
+func (b *Bot) formatActionTitle(action, details string) string {
+	switch action {
+	case "start_cleaning":
+		return "🚀 " + b.t("audit.action_start")
+	case "pause_cleaning":
+		return "⏸ " + b.t("audit.action_pause")
+	case "resume_cleaning":
+		return "▶️ " + b.t("audit.action_resume")
+	case "stop_cleaning":
+		return "🛑 " + b.t("audit.action_stop")
+	case "go_home":
+		return "🏠 " + b.t("audit.action_home")
+	case "locate":
+		return "📢 " + b.t("audit.action_locate")
+	case "wizard_clean":
+		if details != "" {
+			return fmt.Sprintf("🪄 %s (%s)", b.t("audit.action_wizard"), details)
+		}
+		return "🪄 " + b.t("audit.action_wizard")
+	case "set_fan":
+		return fmt.Sprintf("💨 %s: <code>%s</code>", b.t("audit.action_fan"), details)
+	case "set_water":
+		return fmt.Sprintf("💧 %s: <code>%s</code>", b.t("audit.action_water"), details)
+	case "set_mode":
+		return fmt.Sprintf("🛠 %s: <code>%s</code>", b.t("audit.action_mode"), details)
+	case "set_lang":
+		return fmt.Sprintf("🌐 %s: <code>%s</code>", b.t("audit.action_lang"), details)
+	case "set_mopextend":
+		return fmt.Sprintf("🦵 %s: <code>%s</code>", b.t("audit.action_mopextend"), details)
+	case "user_approved":
+		return fmt.Sprintf("✅ %s (%s)", b.t("audit.action_user_approved"), details)
+	case "user_rejected":
+		return fmt.Sprintf("❌ %s (%s)", b.t("audit.action_user_rejected"), details)
+	case "user_deleted":
+		return fmt.Sprintf("🗑 %s (%s)", b.t("audit.action_user_deleted"), details)
+	default:
+		if details != "" {
+			return fmt.Sprintf("%s (%s)", action, details)
+		}
+		return action
+	}
 }
 
 func (b *Bot) sendConsumablesMenu() {

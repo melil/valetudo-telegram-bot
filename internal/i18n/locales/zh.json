@@ -74,6 +74,8 @@
     "btn_mopextend": "🦵 仿生机械臂 (MopExtend)",
     "btn_lang": "🌐 语言 / Language",
     "btn_users": "👥 用户管理",
+    "btn_notifications": "🔔 通知设置",
+    "btn_audit": "📜 操作日志",
     "btn_back": "⬅️ 返回设置",
     "sub_mode_title": "🛠 <b>请选择默认清扫模式：</b>",
     "sub_fan_title": "💨 <b>请选择默认吸力大小：</b>",
@@ -264,5 +266,33 @@
     "approved_user": "🎉 <b>访问权限已开启！</b>\n管理员已允许您控制扫地机器人。\n发送 /start 打开控制菜单。",
     "rejected_admin": "❌ <b>访问请求已拒绝</b>\nChat ID <code>%d</code> 的请求已被拒绝。",
     "rejected_user": "❌ <b>访问被拒绝。</b>\n管理员拒绝了您的访问申请。"
+  },
+  "notifications": {
+    "title": "🔔 <b>通知设置</b>\n选择您希望接收提醒的事件类型：",
+    "status_on": "开启 ✅",
+    "status_off": "关闭 ❌",
+    "btn_errors": "⚠️ 故障与报警",
+    "btn_reports": "📊 清洁报告",
+    "btn_station": "💧 基站水箱"
+  },
+  "audit": {
+    "title": "📜 <b>最近操作日志</b>",
+    "empty": "📜 <b>操作日志为空。</b>",
+    "btn_refresh": "🔄 刷新",
+    "action_start": "开始清扫",
+    "action_pause": "暂停清扫",
+    "action_resume": "继续清扫",
+    "action_stop": "停止清扫",
+    "action_home": "返回充电基站",
+    "action_locate": "寻找机器人",
+    "action_wizard": "选区清扫 (向导)",
+    "action_fan": "吸力设置",
+    "action_water": "出水档位",
+    "action_mode": "清扫模式",
+    "action_lang": "语言切换",
+    "action_mopextend": "仿生机械臂",
+    "action_user_approved": "批准用户",
+    "action_user_rejected": "拒绝申请",
+    "action_user_deleted": "删除用户"
   }
 }

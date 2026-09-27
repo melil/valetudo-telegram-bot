@@ -74,6 +74,8 @@
     "btn_mopextend": "🦵 Extendable Mop (MopExtend)",
     "btn_lang": "🌐 Language / Язык",
     "btn_users": "👥 Users",
+    "btn_notifications": "🔔 Notifications",
+    "btn_audit": "📜 Action Log",
     "btn_back": "⬅️ Back to Settings",
     "sub_mode_title": "🛠 <b>Select default cleaning mode:</b>",
     "sub_fan_title": "💨 <b>Select default suction power:</b>",
@@ -264,5 +266,33 @@
     "approved_user": "🎉 <b>Access Granted!</b>\nAn administrator has granted you access to control the robot vacuum.\nPress /start to open the control menu.",
     "rejected_admin": "❌ <b>Access request declined</b>\nRequest for Chat ID <code>%d</code> was declined.",
     "rejected_user": "❌ <b>Access Denied.</b>\nAn administrator declined your access request."
+  },
+  "notifications": {
+    "title": "🔔 <b>Notification Settings</b>\nSelect the event types you want to receive alerts for:",
+    "status_on": "ON ✅",
+    "status_off": "OFF ❌",
+    "btn_errors": "⚠️ Errors & alerts",
+    "btn_reports": "📊 Cleaning reports",
+    "btn_station": "💧 Water tanks"
+  },
+  "audit": {
+    "title": "📜 <b>Recent Action Log</b>",
+    "empty": "📜 <b>Action log is empty.</b>",
+    "btn_refresh": "🔄 Refresh",
+    "action_start": "Start cleaning",
+    "action_pause": "Pause cleaning",
+    "action_resume": "Resume cleaning",
+    "action_stop": "Stop cleaning",
+    "action_home": "Return to dock",
+    "action_locate": "Locate robot",
+    "action_wizard": "Room cleaning (Wizard)",
+    "action_fan": "Fan speed",
+    "action_water": "Water usage",
+    "action_mode": "Cleaning mode",
+    "action_lang": "Language changed",
+    "action_mopextend": "MopExtend",
+    "action_user_approved": "User approved",
+    "action_user_rejected": "User rejected",
+    "action_user_deleted": "User deleted"
   }
 }

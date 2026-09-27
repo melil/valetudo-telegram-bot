@@ -366,3 +366,168 @@ func TestBot_AuthLocalization(t *testing.T) {
 		t.Errorf("expected English text in adminMsg, got: %s", adminMsg["text"])
 	}
 }
+
+func TestBot_PerUserLocale(t *testing.T) {
+	b, db, _, _, _ := setupTestBotWithDB(t)
+
+	userChatID := int64(2002)
+	if err := db.AddUser(userChatID, "ivan", database.RoleUser); err != nil {
+		t.Fatalf("AddUser failed: %v", err)
+	}
+
+	// Admin changes language to "de"
+	b.SetLang("de")
+
+	// User 2002 changes language to "zh" via callback
+	cb := &telegram.CallbackQuery{
+		ID:   "cb_lang_zh",
+		From: telegram.User{ID: userChatID, Username: "ivan"},
+		Data: "set_lang:zh",
+	}
+	b.handleCallback(cb)
+
+	// Verify DB values
+	uAdmin, _ := db.GetUser(1001)
+	if uAdmin.Locale != "de" {
+		t.Errorf("expected admin locale 'de', got '%s'", uAdmin.Locale)
+	}
+	uUser, _ := db.GetUser(userChatID)
+	if uUser.Locale != "zh" {
+		t.Errorf("expected user locale 'zh', got '%s'", uUser.Locale)
+	}
+
+	// Verify GetUserLang returns independent locales
+	if b.GetUserLang(1001) != "de" {
+		t.Errorf("expected b.GetUserLang(admin) 'de', got '%s'", b.GetUserLang(1001))
+	}
+	if b.GetUserLang(userChatID) != "zh" {
+		t.Errorf("expected b.GetUserLang(user) 'zh', got '%s'", b.GetUserLang(userChatID))
+	}
+
+	// Verify tUser output for both users
+	adminBack := b.tUser(1001, "settings_menu.btn_back")
+	userBack := b.tUser(userChatID, "settings_menu.btn_back")
+
+	if !strings.Contains(adminBack, "Zurück") {
+		t.Errorf("expected German text for admin, got: %s", adminBack)
+	}
+	if !strings.Contains(userBack, "返回") {
+		t.Errorf("expected Chinese text for user, got: %s", userBack)
+	}
+}
+
+func TestBot_NotificationPreferences(t *testing.T) {
+	b, db, _, _, _ := setupTestBotWithDB(t)
+
+	adminChatID := int64(1001)
+	userChatID := int64(2002)
+	_ = db.AddUser(userChatID, "ivan", database.RoleUser)
+
+	// Initial check: both subscribed to errors
+	subErrors := b.getNotifyChatIDs("errors")
+	if len(subErrors) != 2 {
+		t.Errorf("expected 2 subscribers for errors, got %d", len(subErrors))
+	}
+
+	// User 2002 toggles errors notification OFF
+	cbToggle := &telegram.CallbackQuery{
+		ID:   "cb_toggle_err",
+		From: telegram.User{ID: userChatID, Username: "ivan"},
+		Data: "toggle_notify:errors",
+	}
+	b.handleCallback(cbToggle)
+
+	// Check DB
+	u, _ := db.GetUser(userChatID)
+	if u.NotifyErrors {
+		t.Errorf("expected user NotifyErrors to be false")
+	}
+	if !u.NotifyReports {
+		t.Errorf("expected user NotifyReports to remain true")
+	}
+
+	// Check getNotifyChatIDs
+	subErrors = b.getNotifyChatIDs("errors")
+	if len(subErrors) != 1 || subErrors[0] != adminChatID {
+		t.Errorf("expected only admin in error notifications, got %v", subErrors)
+	}
+	subReports := b.getNotifyChatIDs("reports")
+	if len(subReports) != 2 {
+		t.Errorf("expected both users in report notifications, got %v", subReports)
+	}
+}
+
+func TestBot_DashboardPersistence(t *testing.T) {
+	b, db, _, _, _ := setupTestBotWithDB(t)
+
+	adminChatID := int64(1001)
+	userChatID := int64(2002)
+	_ = db.AddUser(userChatID, "ivan", database.RoleUser)
+
+	// Set dashboard msg IDs for both users
+	b.SetDashboardMsgIDForChat(adminChatID, 1234)
+	b.SetDashboardMsgIDForChat(userChatID, 5678)
+
+	// Verify in DB
+	uAdmin, _ := db.GetUser(adminChatID)
+	if uAdmin.DashboardMsgID != 1234 {
+		t.Errorf("expected admin DashboardMsgID 1234, got %d", uAdmin.DashboardMsgID)
+	}
+	uUser, _ := db.GetUser(userChatID)
+	if uUser.DashboardMsgID != 5678 {
+		t.Errorf("expected user DashboardMsgID 5678, got %d", uUser.DashboardMsgID)
+	}
+
+	// Create a new Bot instance sharing the same DB
+	cfg := &config.Config{
+		AllowedChatID: adminChatID,
+		DefaultLang:   "ru",
+	}
+	b2 := New(cfg, nil, nil, db)
+
+	// Verify dashboard IDs were restored in b2
+	if b2.GetDashboardMsgID(adminChatID) != 1234 {
+		t.Errorf("expected b2 admin dashboard msg ID 1234, got %d", b2.GetDashboardMsgID(adminChatID))
+	}
+	if b2.GetDashboardMsgID(userChatID) != 5678 {
+		t.Errorf("expected b2 user dashboard msg ID 5678, got %d", b2.GetDashboardMsgID(userChatID))
+	}
+}
+
+func TestBot_AuditLog(t *testing.T) {
+	b, db, _, _, _ := setupTestBotWithDB(t)
+
+	adminChatID := int64(1001)
+	b.caps = valetudo.NewCapabilitySet([]string{string(valetudo.CapLocate)})
+
+	// Execute several actions
+	b.handleCallback(&telegram.CallbackQuery{
+		ID:   "cb_locate",
+		From: telegram.User{ID: adminChatID, Username: "admin_boss"},
+		Data: "cmd_locate",
+	})
+
+	b.handleCallback(&telegram.CallbackQuery{
+		ID:   "cb_lang",
+		From: telegram.User{ID: adminChatID, Username: "admin_boss"},
+		Data: "set_lang:en",
+	})
+
+	// Check audit log in DB
+	logs, err := db.GetRecentAuditLogs(10)
+	if err != nil {
+		t.Fatalf("GetRecentAuditLogs failed: %v", err)
+	}
+	if len(logs) < 2 {
+		t.Fatalf("expected at least 2 audit logs, got %d", len(logs))
+	}
+
+	// Verify audit menu generation
+	menuText, markup := b.getAuditLogMenu()
+	if !strings.Contains(menuText, "Recent Action Log") && !strings.Contains(menuText, "Журнал последних действий") {
+		t.Errorf("expected audit menu title in menuText, got: %s", menuText)
+	}
+	if markup == nil || len(markup.InlineKeyboard) == 0 {
+		t.Errorf("expected non-empty audit menu markup")
+	}
+}

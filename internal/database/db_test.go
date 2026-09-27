@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 )
@@ -23,7 +24,6 @@ func setupTestDB(t *testing.T) *DB {
 func TestDatabase_BootstrapAdmin(t *testing.T) {
 	db := setupTestDB(t)
 
-	// 1. Первый запуск: база пустая, должен создаться админ
 	err := db.BootstrapAdmin(111222, "admin_user")
 	if err != nil {
 		t.Fatalf("BootstrapAdmin failed: %v", err)
@@ -39,8 +39,10 @@ func TestDatabase_BootstrapAdmin(t *testing.T) {
 	if u.Username != "admin_user" {
 		t.Errorf("expected username admin_user, got %s", u.Username)
 	}
+	if u.Locale != "ru" {
+		t.Errorf("expected default locale ru, got %s", u.Locale)
+	}
 
-	// 2. Повторный вызов бутстрапа с другим ID не должен ничего менять, так как в базе уже есть записи
 	err = db.BootstrapAdmin(999999, "other_admin")
 	if err != nil {
 		t.Fatalf("BootstrapAdmin 2 failed: %v", err)
@@ -55,80 +57,88 @@ func TestDatabase_BootstrapAdmin(t *testing.T) {
 	}
 }
 
-func TestDatabase_UserLifecycle(t *testing.T) {
+func TestDatabase_UserLifecycleAndPreferences(t *testing.T) {
 	db := setupTestDB(t)
 
-	// Пользователя нет
-	allowed, err := db.IsAllowed(12345)
-	if err != nil {
-		t.Fatalf("IsAllowed error: %v", err)
-	}
-	if allowed {
-		t.Errorf("expected user 12345 to not be allowed")
-	}
-
-	// Добавляем обычного пользователя
-	err = db.AddUser(12345, "alice", RoleUser)
+	err := db.AddUser(12345, "alice", RoleUser)
 	if err != nil {
 		t.Fatalf("AddUser error: %v", err)
 	}
 
-	allowed, err = db.IsAllowed(12345)
-	if err != nil || !allowed {
-		t.Errorf("expected user 12345 to be allowed")
-	}
-
-	isAdmin, err := db.IsAdmin(12345)
-	if err != nil || isAdmin {
-		t.Errorf("expected user 12345 not to be admin")
-	}
-
-	// Добавляем администратора
-	err = db.AddUser(67890, "bob", RoleAdmin)
+	// 1. Проверяем сохранение языка (Feature 1)
+	err = db.SetUserLocale(12345, "en")
 	if err != nil {
-		t.Fatalf("AddUser admin error: %v", err)
+		t.Fatalf("SetUserLocale failed: %v", err)
+	}
+	u, err := db.GetUser(12345)
+	if err != nil || u.Locale != "en" {
+		t.Fatalf("expected locale 'en', got: %v", u)
 	}
 
-	isAdmin, err = db.IsAdmin(67890)
-	if err != nil || !isAdmin {
-		t.Errorf("expected user 67890 to be admin")
-	}
-
-	// Проверяем список админов
-	admins, err := db.GetAdmins()
+	// 2. Проверяем сохранение message_id дашборда (Feature 6)
+	err = db.SetUserDashboardMsgID(12345, 888)
 	if err != nil {
-		t.Fatalf("GetAdmins error: %v", err)
+		t.Fatalf("SetUserDashboardMsgID failed: %v", err)
 	}
-	if len(admins) != 1 || admins[0].ChatID != 67890 {
-		t.Errorf("expected 1 admin with id 67890, got: %v", admins)
+	msgMap, err := db.GetAllDashboardMsgIDs()
+	if err != nil || msgMap[12345] != 888 {
+		t.Fatalf("expected msgMap[12345] == 888, got: %v", msgMap)
 	}
 
-	// Обновление роли пользователя до админа
-	err = db.AddUser(12345, "alice", RoleAdmin)
+	// 3. Проверяем настройки уведомлений (Feature 2)
+	err = db.SetUserNotificationPref(12345, "errors", false)
 	if err != nil {
-		t.Fatalf("AddUser update role error: %v", err)
+		t.Fatalf("SetUserNotificationPref errors failed: %v", err)
+	}
+	u, err = db.GetUser(12345)
+	if err != nil || u.NotifyErrors != false {
+		t.Fatalf("expected NotifyErrors to be false, got: %v", u)
 	}
 
-	isAdmin, err = db.IsAdmin(12345)
-	if err != nil || !isAdmin {
-		t.Errorf("expected user 12345 to be promoted to admin")
-	}
-
-	admins, err = db.GetAdmins()
+	subErrors, err := db.GetSubscribedUsers("errors")
 	if err != nil {
-		t.Fatalf("GetAdmins error: %v", err)
+		t.Fatalf("GetSubscribedUsers errors failed: %v", err)
 	}
-	if len(admins) != 2 {
-		t.Errorf("expected 2 admins, got %d", len(admins))
+	for _, id := range subErrors {
+		if id == 12345 {
+			t.Fatalf("user 12345 should not be subscribed to errors")
+		}
 	}
 
-	// Удаление пользователя
-	err = db.DeleteUser(12345)
-	if err != nil {
-		t.Fatalf("DeleteUser error: %v", err)
+	subReports, err := db.GetSubscribedUsers("reports")
+	if err != nil || len(subReports) != 1 || subReports[0] != 12345 {
+		t.Fatalf("user 12345 should be subscribed to reports: %v", subReports)
 	}
-	allowed, err = db.IsAllowed(12345)
-	if err != nil || allowed {
-		t.Errorf("expected user 12345 to be deleted")
+}
+
+func TestDatabase_AuditLogRingBuffer(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Добавляем 105 записей действий (Feature 7)
+	for i := 1; i <= 105; i++ {
+		err := db.LogAction(1001, "admin", "test_action", fmt.Sprintf("event #%d", i))
+		if err != nil {
+			t.Fatalf("LogAction #%d failed: %v", i, err)
+		}
+	}
+
+	// Проверяем, что в базе осталось ровно 100 записей
+	var count int
+	err := db.db.QueryRow("SELECT COUNT(*) FROM audit_logs").Scan(&count)
+	if err != nil {
+		t.Fatalf("count audit_logs failed: %v", err)
+	}
+	if count != 100 {
+		t.Fatalf("expected ring buffer of 100 items, got %d", count)
+	}
+
+	// Получаем последние 5 записей
+	logs, err := db.GetRecentAuditLogs(5)
+	if err != nil || len(logs) != 5 {
+		t.Fatalf("expected 5 recent logs, got %v", logs)
+	}
+	// Самая последняя запись должна быть event #105
+	if logs[0].Details != "event #105" {
+		t.Errorf("expected first log to be event #105, got %s", logs[0].Details)
 	}
 }

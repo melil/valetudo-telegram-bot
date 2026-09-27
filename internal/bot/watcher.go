@@ -80,15 +80,16 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		}
 
 		if currentStatus == "error" && (lastStatus != "error" || currentErrorFlag != lastErrorFlag) {
-			b.broadcastTextMessage(b.t("watcher.err_robot", currentStatus, currentErrorFlag), b.cfg.IsDNDActive())
+			for _, chatID := range b.getNotifyChatIDs("errors") {
+				msg := b.tUser(chatID, "watcher.err_robot", currentStatus, currentErrorFlag)
+				_, _ = b.tg.SendTextMessage(chatID, msg, b.cfg.IsDNDActive(), nil)
+			}
 			b.broadcastMainDashboard()
 		}
 
 		if (lastStatus == "cleaning" || lastStatus == "returning" || b.IsSessionActive()) && currentStatus == "docked" {
 			report := b.FinishSession(currentBattery)
-			msg := b.formatReportCaption(report)
 
-			sent := false
 			mapReader, err := b.val.GetMapReader()
 			var mapData []byte
 			if err == nil {
@@ -98,21 +99,19 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 				log.Printf("statusWatcher: карта недоступна как изображение (%v), отправляю текстовый отчет...", err)
 			}
 
-			userIDs := b.getAllUserChatIDs()
-			if len(mapData) > 0 {
-				for _, chatID := range userIDs {
-					if errPhoto := b.tg.SendPhoto(chatID, bytes.NewReader(mapData), msg, b.cfg.IsDNDActive()); errPhoto == nil {
+			reportChatIDs := b.getNotifyChatIDs("reports")
+			for _, chatID := range reportChatIDs {
+				userMsg := b.formatReportCaptionForChat(report, chatID)
+				sent := false
+				if len(mapData) > 0 {
+					if errPhoto := b.tg.SendPhoto(chatID, bytes.NewReader(mapData), userMsg, b.cfg.IsDNDActive()); errPhoto == nil {
 						sent = true
 					} else {
 						log.Printf("statusWatcher: не удалось отправить фото карты пользователю %d (%v)", chatID, errPhoto)
 					}
 				}
-			}
-
-			// Если фото карты недоступно или произошла ошибка отправки фото, отправляем текстовый отчет
-			if !sent {
-				for _, chatID := range userIDs {
-					if _, errText := b.tg.SendTextMessage(chatID, msg, b.cfg.IsDNDActive(), nil); errText != nil {
+				if !sent {
+					if _, errText := b.tg.SendTextMessage(chatID, userMsg, b.cfg.IsDNDActive(), nil); errText != nil {
 						log.Printf("statusWatcher: не удалось отправить текстовый отчет об уборке пользователю %d: %v", chatID, errText)
 					}
 				}
@@ -123,10 +122,16 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		}
 
 		if currentCleanWater != "ok" && lastCleanWater == "ok" {
-			b.broadcastTextMessage(b.t("watcher.clean_water_low"), b.cfg.IsDNDActive())
+			for _, chatID := range b.getNotifyChatIDs("station") {
+				msg := b.tUser(chatID, "watcher.clean_water_low")
+				_, _ = b.tg.SendTextMessage(chatID, msg, b.cfg.IsDNDActive(), nil)
+			}
 		}
 		if currentDirtyWater != "ok" && lastDirtyWater == "ok" {
-			b.broadcastTextMessage(b.t("watcher.dirty_water_full"), b.cfg.IsDNDActive())
+			for _, chatID := range b.getNotifyChatIDs("station") {
+				msg := b.tUser(chatID, "watcher.dirty_water_full")
+				_, _ = b.tg.SendTextMessage(chatID, msg, b.cfg.IsDNDActive(), nil)
+			}
 		}
 
 		lastStatus = currentStatus

@@ -43,7 +43,7 @@ func (b *Bot) handleUnauthorizedAccess(msg *telegram.Message) {
 	_ = b.tg.DeleteMessage(chatID, msg.MessageID)
 
 	// 1. Отвечаем неавторизованному пользователю
-	replyText := fmt.Sprintf(b.t("auth.no_access"), chatID)
+	replyText := fmt.Sprintf(b.tUser(chatID, "auth.no_access"), chatID)
 	_, _ = b.tg.SendTextMessage(chatID, replyText, false, nil)
 
 	// 2. Дедупликация: отправляем уведомление админам не чаще раза в минуту для одного ChatID
@@ -62,32 +62,38 @@ func (b *Bot) handleUnauthorizedAccess(msg *telegram.Message) {
 		username = msg.From.Username
 		fullName = strings.TrimSpace(msg.From.FirstName + " " + msg.From.LastName)
 	}
-	if fullName == "" {
-		fullName = b.t("auth.name_not_specified")
-	}
 
-	userDisplay := b.t("auth.no_username")
+	userDisplay := ""
 	if username != "" {
 		userDisplay = "@" + username
-	}
-
-	adminText := fmt.Sprintf(
-		b.t("auth.request_title"),
-		userDisplay, fullName, chatID,
-	)
-
-	markup := &telegram.InlineKeyboardMarkup{
-		InlineKeyboard: [][]telegram.InlineKeyboardButton{
-			{
-				{Text: b.t("auth.btn_approve"), CallbackData: fmt.Sprintf("auth_approve:%d:%s", chatID, username)},
-				{Text: b.t("auth.btn_reject"), CallbackData: fmt.Sprintf("auth_reject:%d", chatID)},
-			},
-		},
 	}
 
 	// 4. Отправляем запрос администраторам
 	adminIDs := b.getAdminChatIDs()
 	for _, adminID := range adminIDs {
+		adminUserDisplay := userDisplay
+		if adminUserDisplay == "" {
+			adminUserDisplay = b.tUser(adminID, "auth.no_username")
+		}
+		adminFullName := fullName
+		if adminFullName == "" {
+			adminFullName = b.tUser(adminID, "auth.name_not_specified")
+		}
+
+		adminText := fmt.Sprintf(
+			b.tUser(adminID, "auth.request_title"),
+			adminUserDisplay, adminFullName, chatID,
+		)
+
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{
+					{Text: b.tUser(adminID, "auth.btn_approve"), CallbackData: fmt.Sprintf("auth_approve:%d:%s", chatID, username)},
+					{Text: b.tUser(adminID, "auth.btn_reject"), CallbackData: fmt.Sprintf("auth_reject:%d", chatID)},
+				},
+			},
+		}
+
 		_, _ = b.tg.SendTextMessage(adminID, adminText, false, markup)
 	}
 }
@@ -100,7 +106,7 @@ func (b *Bot) handleAuthCallback(cb *telegram.CallbackQuery) bool {
 
 	// Проверяем, что кнопку нажал администратор
 	if !b.isUserAdmin(cb.From.ID) {
-		_ = b.tg.AnswerCallbackQueryAlert(cb.ID, b.t("auth.admin_only"), true)
+		_ = b.tg.AnswerCallbackQueryAlert(cb.ID, b.tUser(cb.From.ID, "auth.admin_only"), true)
 		return true
 	}
 
@@ -108,7 +114,7 @@ func (b *Bot) handleAuthCallback(cb *telegram.CallbackQuery) bool {
 	action := parts[0]
 	targetID, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		_ = b.tg.AnswerCallbackQueryAlert(cb.ID, b.t("auth.err_parse_id"), false)
+		_ = b.tg.AnswerCallbackQueryAlert(cb.ID, b.tUser(cb.From.ID, "auth.err_parse_id"), false)
 		return true
 	}
 
@@ -122,7 +128,7 @@ func (b *Bot) handleAuthCallback(cb *telegram.CallbackQuery) bool {
 		if b.db != nil {
 			if err := b.db.AddUser(targetID, targetUsername, database.RoleUser); err != nil {
 				log.Printf("Ошибка добавления пользователя %d: %v", targetID, err)
-				_ = b.tg.AnswerCallbackQueryAlert(cb.ID, b.t("auth.err_db"), false)
+				_ = b.tg.AnswerCallbackQueryAlert(cb.ID, b.tUser(cb.From.ID, "auth.err_db"), false)
 				return true
 			}
 		}
@@ -134,26 +140,34 @@ func (b *Bot) handleAuthCallback(cb *telegram.CallbackQuery) bool {
 		if targetUsername != "" {
 			userDisplay = fmt.Sprintf("@%s (ID: <code>%d</code>)", targetUsername, targetID)
 		}
-		updatedText := fmt.Sprintf(b.t("auth.approved_admin"), userDisplay)
+		b.LogAction(cb.From.ID, "user_approved", userDisplay)
+
+		updatedText := fmt.Sprintf(b.tUser(cb.From.ID, "auth.approved_admin"), userDisplay)
 		if cb.Message != nil {
 			_ = b.tg.EditMessage(cb.From.ID, cb.Message.MessageID, updatedText, nil)
 		}
 
 		// Отправляем уведомление новому пользователю
-		welcomeMsg := b.t("auth.approved_user")
+		welcomeMsg := b.tUser(targetID, "auth.approved_user")
 		_, _ = b.tg.SendTextMessage(targetID, welcomeMsg, false, nil)
 
 	case "auth_reject":
 		_ = b.tg.AnswerCallbackQuery(cb.ID)
 
+		userDisplay := fmt.Sprintf("ID: %d", targetID)
+		if targetUsername != "" {
+			userDisplay = fmt.Sprintf("@%s (ID: %d)", targetUsername, targetID)
+		}
+		b.LogAction(cb.From.ID, "user_rejected", userDisplay)
+
 		// Обновляем сообщение у админа
-		updatedText := fmt.Sprintf(b.t("auth.rejected_admin"), targetID)
+		updatedText := fmt.Sprintf(b.tUser(cb.From.ID, "auth.rejected_admin"), targetID)
 		if cb.Message != nil {
 			_ = b.tg.EditMessage(cb.From.ID, cb.Message.MessageID, updatedText, nil)
 		}
 
 		// Уведомляем пользователя об отказе
-		rejectMsg := b.t("auth.rejected_user")
+		rejectMsg := b.tUser(targetID, "auth.rejected_user")
 		_, _ = b.tg.SendTextMessage(targetID, rejectMsg, false, nil)
 	}
 
@@ -208,6 +222,23 @@ func (b *Bot) getAllUserChatIDs() []int64 {
 	return res
 }
 
+// getNotifyChatIDs возвращает список chat_id пользователей, подписанных на категорию уведомлений.
+func (b *Bot) getNotifyChatIDs(prefType string) []int64 {
+	if b.db != nil {
+		ids, err := b.db.GetSubscribedUsers(prefType)
+		if err == nil {
+			return ids
+		}
+	}
+	return b.getAllUserChatIDs()
+}
+
+// getMainDashboardForChat возвращает главное меню с учетом персонального языка чата.
+func (b *Bot) getMainDashboardForChat(chatID int64) (string, *telegram.InlineKeyboardMarkup) {
+	b.SetActiveChatID(chatID)
+	return b.getMainDashboard()
+}
+
 // broadcastTextMessage отправляет текстовое сообщение всем авторизованным пользователям.
 func (b *Bot) broadcastTextMessage(text string, disableNotification bool) {
 	for _, chatID := range b.getAllUserChatIDs() {
@@ -215,10 +246,10 @@ func (b *Bot) broadcastTextMessage(text string, disableNotification bool) {
 	}
 }
 
-// broadcastMainDashboard обновляет главное меню у всех пользователей.
+// broadcastMainDashboard обновляет главное меню у всех пользователей с учетом персонального языка каждого.
 func (b *Bot) broadcastMainDashboard() {
 	for _, chatID := range b.getAllUserChatIDs() {
-		text, markup := b.getMainDashboard()
+		text, markup := b.getMainDashboardForChat(chatID)
 		_ = b.renderDashboardForChat(chatID, text, markup)
 	}
 }

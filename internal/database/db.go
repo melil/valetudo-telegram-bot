@@ -21,9 +21,23 @@ const (
 )
 
 type User struct {
+	ChatID         int64     `json:"chat_id"`
+	Username       string    `json:"username"`
+	Role           Role      `json:"role"`
+	Locale         string    `json:"locale"`
+	NotifyErrors   bool      `json:"notify_errors"`
+	NotifyReports  bool      `json:"notify_reports"`
+	NotifyStation  bool      `json:"notify_station"`
+	DashboardMsgID int       `json:"dashboard_msg_id"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type AuditLog struct {
+	ID        int64     `json:"id"`
 	ChatID    int64     `json:"chat_id"`
 	Username  string    `json:"username"`
-	Role      Role      `json:"role"`
+	Action    string    `json:"action"`
+	Details   string    `json:"details"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -37,15 +51,12 @@ func Open(dbPath string) (*DB, error) {
 		dbPath = "bot.db"
 	}
 
-	// modernc.org/sqlite использует имя драйвера "sqlite"
-	// _pragma=busy_timeout=5000&_pragma=journal_mode=WAL для надежности и параллельного чтения
 	dsn := fmt.Sprintf("%s?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)", dbPath)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite database: %w", err)
 	}
 
-	// SQLite в одном файле лучше всего работает с ограничением на параллельную запись
 	db.SetMaxOpenConns(1)
 
 	d := &DB{db: db}
@@ -57,23 +68,53 @@ func Open(dbPath string) (*DB, error) {
 	return d, nil
 }
 
-// InitSchema создаёт таблицу users, если она ещё не существует.
+// InitSchema создаёт таблицы users и audit_logs, а также накатывает безопасные миграции колонок.
 func (d *DB) InitSchema() error {
 	query := `
 	CREATE TABLE IF NOT EXISTS users (
 		chat_id INTEGER PRIMARY KEY,
 		username TEXT NOT NULL DEFAULT '',
 		role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+		locale TEXT NOT NULL DEFAULT 'ru',
+		notify_errors INTEGER NOT NULL DEFAULT 1,
+		notify_reports INTEGER NOT NULL DEFAULT 1,
+		notify_station INTEGER NOT NULL DEFAULT 1,
+		dashboard_msg_id INTEGER NOT NULL DEFAULT 0,
 		created_at DATETIME NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+	CREATE TABLE IF NOT EXISTS audit_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		chat_id INTEGER NOT NULL,
+		username TEXT NOT NULL DEFAULT '',
+		action TEXT NOT NULL,
+		details TEXT NOT NULL DEFAULT '',
+		created_at DATETIME NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS idx_audit_logs_id ON audit_logs(id DESC);
 	`
-	_, err := d.db.Exec(query)
-	return err
+	if _, err := d.db.Exec(query); err != nil {
+		return err
+	}
+
+	// Идемпотентная миграция колонок для ранее созданных баз
+	addColumnIfNotExists(d.db, "users", "locale", "TEXT NOT NULL DEFAULT 'ru'")
+	addColumnIfNotExists(d.db, "users", "notify_errors", "INTEGER NOT NULL DEFAULT 1")
+	addColumnIfNotExists(d.db, "users", "notify_reports", "INTEGER NOT NULL DEFAULT 1")
+	addColumnIfNotExists(d.db, "users", "notify_station", "INTEGER NOT NULL DEFAULT 1")
+	addColumnIfNotExists(d.db, "users", "dashboard_msg_id", "INTEGER NOT NULL DEFAULT 0")
+
+	return nil
 }
 
-// BootstrapAdmin проверяет, есть ли записи в таблице users.
-// Если таблица пуста и передан начальный defaultAdminChatID > 0, добавляет его как 'admin'.
+func addColumnIfNotExists(db *sql.DB, table, column, colDef string) {
+	query := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, colDef)
+	_, _ = db.Exec(query)
+}
+
+// BootstrapAdmin проверяет наличие пользователей. Если таблица пуста,
+// добавляет начальный chat_id из ENV с ролью 'admin'.
 func (d *DB) BootstrapAdmin(defaultAdminChatID int64, username string) error {
 	if defaultAdminChatID <= 0 {
 		return nil
@@ -93,11 +134,14 @@ func (d *DB) BootstrapAdmin(defaultAdminChatID int64, username string) error {
 
 // GetUser возвращает пользователя по chat_id или ErrUserNotFound.
 func (d *DB) GetUser(chatID int64) (*User, error) {
-	row := d.db.QueryRow("SELECT chat_id, username, role, created_at FROM users WHERE chat_id = ?", chatID)
+	row := d.db.QueryRow(`
+		SELECT chat_id, username, role, locale, notify_errors, notify_reports, notify_station, dashboard_msg_id, created_at 
+		FROM users WHERE chat_id = ?`, chatID)
 
 	var u User
 	var roleStr string
-	err := row.Scan(&u.ChatID, &u.Username, &roleStr, &u.CreatedAt)
+	var nErr, nRep, nSta int
+	err := row.Scan(&u.ChatID, &u.Username, &roleStr, &u.Locale, &nErr, &nRep, &nSta, &u.DashboardMsgID, &u.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
@@ -105,6 +149,9 @@ func (d *DB) GetUser(chatID int64) (*User, error) {
 		return nil, err
 	}
 	u.Role = Role(roleStr)
+	u.NotifyErrors = nErr == 1
+	u.NotifyReports = nRep == 1
+	u.NotifyStation = nSta == 1
 	return &u, nil
 }
 
@@ -136,8 +183,8 @@ func (d *DB) IsAdmin(chatID int64) (bool, error) {
 // AddUser добавляет или обновляет роль и имя пользователя.
 func (d *DB) AddUser(chatID int64, username string, role Role) error {
 	query := `
-	INSERT INTO users (chat_id, username, role, created_at)
-	VALUES (?, ?, ?, ?)
+	INSERT INTO users (chat_id, username, role, locale, notify_errors, notify_reports, notify_station, dashboard_msg_id, created_at)
+	VALUES (?, ?, ?, 'ru', 1, 1, 1, 0, ?)
 	ON CONFLICT(chat_id) DO UPDATE SET
 		role = excluded.role,
 		username = excluded.username;
@@ -146,9 +193,134 @@ func (d *DB) AddUser(chatID int64, username string, role Role) error {
 	return err
 }
 
-// GetAdmins возвращает список всех администраторов (для рассылки уведомлений).
+// SetUserLocale сохраняет персональный язык интерфейса пользователя.
+func (d *DB) SetUserLocale(chatID int64, locale string) error {
+	_, err := d.db.Exec("UPDATE users SET locale = ? WHERE chat_id = ?", locale, chatID)
+	return err
+}
+
+// SetUserDashboardMsgID сохраняет ID активного сообщения дашборда для пользователя.
+func (d *DB) SetUserDashboardMsgID(chatID int64, msgID int) error {
+	_, err := d.db.Exec("UPDATE users SET dashboard_msg_id = ? WHERE chat_id = ?", msgID, chatID)
+	return err
+}
+
+// GetAllDashboardMsgIDs возвращает мапу сохраненных message_id дашбордов для всех пользователей.
+func (d *DB) GetAllDashboardMsgIDs() (map[int64]int, error) {
+	rows, err := d.db.Query("SELECT chat_id, dashboard_msg_id FROM users WHERE dashboard_msg_id > 0")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := make(map[int64]int)
+	for rows.Next() {
+		var chatID int64
+		var msgID int
+		if err := rows.Scan(&chatID, &msgID); err != nil {
+			return nil, err
+		}
+		res[chatID] = msgID
+	}
+	return res, rows.Err()
+}
+
+// SetUserNotificationPref переключает подписку пользователя на категорию уведомлений (errors, reports, station).
+func (d *DB) SetUserNotificationPref(chatID int64, prefType string, enabled bool) error {
+	var col string
+	switch prefType {
+	case "errors":
+		col = "notify_errors"
+	case "reports":
+		col = "notify_reports"
+	case "station":
+		col = "notify_station"
+	default:
+		return fmt.Errorf("unknown notification pref type: %s", prefType)
+	}
+
+	val := 0
+	if enabled {
+		val = 1
+	}
+
+	query := fmt.Sprintf("UPDATE users SET %s = ? WHERE chat_id = ?", col)
+	_, err := d.db.Exec(query, val, chatID)
+	return err
+}
+
+// GetSubscribedUsers возвращает список chat_id пользователей, подписанных на категорию уведомлений.
+func (d *DB) GetSubscribedUsers(prefType string) ([]int64, error) {
+	var col string
+	switch prefType {
+	case "errors":
+		col = "notify_errors"
+	case "reports":
+		col = "notify_reports"
+	case "station":
+		col = "notify_station"
+	default:
+		return nil, fmt.Errorf("unknown notification pref type: %s", prefType)
+	}
+
+	query := fmt.Sprintf("SELECT chat_id FROM users WHERE %s = 1", col)
+	rows, err := d.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// LogAction записывает действие пользователя в журнал аудита и автоматически держит лимит до 100 записей.
+func (d *DB) LogAction(chatID int64, username, action, details string) error {
+	query := `INSERT INTO audit_logs (chat_id, username, action, details, created_at) VALUES (?, ?, ?, ?, ?)`
+	if _, err := d.db.Exec(query, chatID, username, action, details, time.Now().UTC()); err != nil {
+		return err
+	}
+
+	// Кольцевая очистка: удаляем всё за пределами последних 100 записей
+	cleanupQuery := `DELETE FROM audit_logs WHERE id NOT IN (SELECT id FROM audit_logs ORDER BY id DESC LIMIT 100)`
+	_, _ = d.db.Exec(cleanupQuery)
+	return nil
+}
+
+// GetRecentAuditLogs возвращает последние N записей журнала аудита.
+func (d *DB) GetRecentAuditLogs(limit int) ([]AuditLog, error) {
+	if limit <= 0 {
+		limit = 15
+	}
+	rows, err := d.db.Query(`SELECT id, chat_id, username, action, details, created_at FROM audit_logs ORDER BY id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []AuditLog
+	for rows.Next() {
+		var a AuditLog
+		if err := rows.Scan(&a.ID, &a.ChatID, &a.Username, &a.Action, &a.Details, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		logs = append(logs, a)
+	}
+	return logs, rows.Err()
+}
+
+// GetAdmins возвращает список всех администраторов (для рассылки запросов доступа).
 func (d *DB) GetAdmins() ([]User, error) {
-	rows, err := d.db.Query("SELECT chat_id, username, role, created_at FROM users WHERE role = 'admin'")
+	rows, err := d.db.Query(`
+		SELECT chat_id, username, role, locale, notify_errors, notify_reports, notify_station, dashboard_msg_id, created_at 
+		FROM users WHERE role = 'admin'`)
 	if err != nil {
 		return nil, err
 	}
@@ -158,10 +330,14 @@ func (d *DB) GetAdmins() ([]User, error) {
 	for rows.Next() {
 		var u User
 		var roleStr string
-		if err := rows.Scan(&u.ChatID, &u.Username, &roleStr, &u.CreatedAt); err != nil {
+		var nErr, nRep, nSta int
+		if err := rows.Scan(&u.ChatID, &u.Username, &roleStr, &u.Locale, &nErr, &nRep, &nSta, &u.DashboardMsgID, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		u.Role = Role(roleStr)
+		u.NotifyErrors = nErr == 1
+		u.NotifyReports = nRep == 1
+		u.NotifyStation = nSta == 1
 		admins = append(admins, u)
 	}
 	return admins, rows.Err()
@@ -169,7 +345,9 @@ func (d *DB) GetAdmins() ([]User, error) {
 
 // GetAllUsers возвращает список всех пользователей бота.
 func (d *DB) GetAllUsers() ([]User, error) {
-	rows, err := d.db.Query("SELECT chat_id, username, role, created_at FROM users ORDER BY created_at ASC")
+	rows, err := d.db.Query(`
+		SELECT chat_id, username, role, locale, notify_errors, notify_reports, notify_station, dashboard_msg_id, created_at 
+		FROM users ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -179,10 +357,14 @@ func (d *DB) GetAllUsers() ([]User, error) {
 	for rows.Next() {
 		var u User
 		var roleStr string
-		if err := rows.Scan(&u.ChatID, &u.Username, &roleStr, &u.CreatedAt); err != nil {
+		var nErr, nRep, nSta int
+		if err := rows.Scan(&u.ChatID, &u.Username, &roleStr, &u.Locale, &nErr, &nRep, &nSta, &u.DashboardMsgID, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		u.Role = Role(roleStr)
+		u.NotifyErrors = nErr == 1
+		u.NotifyReports = nRep == 1
+		u.NotifyStation = nSta == 1
 		users = append(users, u)
 	}
 	return users, rows.Err()

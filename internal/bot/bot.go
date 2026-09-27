@@ -54,6 +54,13 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client, db ...*d
 		userDB = db[0]
 	}
 
+	initialDashboards := make(map[int64]int)
+	if userDB != nil {
+		if savedMap, err := userDB.GetAllDashboardMsgIDs(); err == nil {
+			initialDashboards = savedMap
+		}
+	}
+
 	return &Bot{
 		cfg:             cfg,
 		tg:              tg,
@@ -63,7 +70,7 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client, db ...*d
 		lastStatus:      "docked",
 		lastFlag:        "none",
 		lang:            i18n.NormalizeLocale(cfg.DefaultLang),
-		dashboards:      make(map[int64]int),
+		dashboards:      initialDashboards,
 		activeWizards:   make(map[int64]*WizardSession),
 		lastAuthReqTime: make(map[int64]time.Time),
 		startTime:       time.Now(),
@@ -187,13 +194,41 @@ func (b *Bot) GetLang() i18n.Locale {
 }
 
 func (b *Bot) SetLang(loc i18n.Locale) {
+	norm := i18n.NormalizeLocale(string(loc))
 	b.langMu.Lock()
-	defer b.langMu.Unlock()
-	b.lang = loc
+	b.lang = norm
+	b.langMu.Unlock()
+	if b.db != nil && b.cfg.AllowedChatID != 0 {
+		_ = b.db.SetUserLocale(b.cfg.AllowedChatID, string(norm))
+	}
+}
+
+func (b *Bot) GetUserLang(chatID int64) i18n.Locale {
+	if b.db != nil && chatID != 0 {
+		if u, err := b.db.GetUser(chatID); err == nil && u != nil && u.Locale != "" {
+			return i18n.NormalizeLocale(u.Locale)
+		}
+	}
+	return b.GetLang()
 }
 
 func (b *Bot) t(key string, args ...any) string {
-	return i18n.T(b.GetLang(), key, args...)
+	return i18n.T(b.GetUserLang(b.GetActiveChatID()), key, args...)
+}
+
+func (b *Bot) tUser(chatID int64, key string, args ...any) string {
+	return i18n.T(b.GetUserLang(chatID), key, args...)
+}
+
+func (b *Bot) LogAction(chatID int64, action, details string) {
+	if b.db == nil {
+		return
+	}
+	var username string
+	if u, err := b.db.GetUser(chatID); err == nil && u != nil {
+		username = u.Username
+	}
+	_ = b.db.LogAction(chatID, username, action, details)
 }
 
 func (b *Bot) SetActiveChatID(chatID int64) {
@@ -235,6 +270,10 @@ func (b *Bot) SetDashboardMsgIDForChat(chatID int64, msgID int) {
 	defer b.dashMu.Unlock()
 	b.dashboards[chatID] = msgID
 	b.dashboardMsgID = msgID
+
+	if b.db != nil && chatID != 0 {
+		_ = b.db.SetUserDashboardMsgID(chatID, msgID)
+	}
 }
 
 func (b *Bot) renderDashboard(text string, markup *telegram.InlineKeyboardMarkup) error {
@@ -275,6 +314,10 @@ func (b *Bot) renderDashboardForChat(chatID int64, text string, markup *telegram
 			b.dashboardMsgID = newID
 		}
 		b.dashMu.Unlock()
+
+		if b.db != nil && chatID != 0 {
+			_ = b.db.SetUserDashboardMsgID(chatID, newID)
+		}
 	}
 	return err
 }

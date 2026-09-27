@@ -191,31 +191,35 @@ func (b *Bot) formatReportAlert(r *CleaningReport) string {
 }
 
 func (b *Bot) formatReportCaption(r *CleaningReport) string {
+	return b.formatReportCaptionForChat(r, b.GetActiveChatID())
+}
+
+func (b *Bot) formatReportCaptionForChat(r *CleaningReport, chatID int64) string {
 	if r == nil {
 		min, sec, areaM2 := b.val.GetCurrentSessionStats()
 		if min > 0 || sec > 0 || areaM2 > 0 {
 			return fmt.Sprintf(
 				"🏁 <b>%s</b>\n%s\n\n⏱ <b>%s:</b> %d %s %d %s\n📐 <b>%s:</b> %.1f м²",
-				b.t("watcher.cleaning_finished_title"),
-				b.t("watcher.cleaning_finished_subtitle"),
-				b.t("report.lbl_time"), min, b.t("report.min"), sec, b.t("report.sec"),
-				b.t("report.lbl_area"), areaM2,
+				b.tUser(chatID, "watcher.cleaning_finished_title"),
+				b.tUser(chatID, "watcher.cleaning_finished_subtitle"),
+				b.tUser(chatID, "report.lbl_time"), min, b.tUser(chatID, "report.min"), sec, b.tUser(chatID, "report.sec"),
+				b.tUser(chatID, "report.lbl_area"), areaM2,
 			)
 		}
 		return fmt.Sprintf(
 			"🏁 <b>%s</b>\n%s",
-			b.t("watcher.cleaning_finished_title"),
-			b.t("watcher.cleaning_finished_subtitle"),
+			b.tUser(chatID, "watcher.cleaning_finished_title"),
+			b.tUser(chatID, "watcher.cleaning_finished_subtitle"),
 		)
 	}
 
 	return fmt.Sprintf(
 		"🏁 <b>%s</b>\n%s\n\n⏱ <b>%s:</b> %d %s %d %s\n📐 <b>%s:</b> %.1f м²\n🔋 <b>%s:</b> %d%% ➔ %d%% (-%d%%)\n🧹 <b>%s:</b> %s",
-		b.t("watcher.cleaning_finished_title"),
-		b.t("watcher.cleaning_finished_subtitle"),
-		b.t("report.lbl_time"), r.DurationMin, b.t("report.min"), r.DurationSec, b.t("report.sec"),
-		b.t("report.lbl_area"), r.AreaM2,
-		b.t("report.lbl_battery"), r.StartBattery, r.EndBattery, r.BatteryUsed,
-		b.t("report.lbl_rooms"), r.Rooms,
+		b.tUser(chatID, "watcher.cleaning_finished_title"),
+		b.tUser(chatID, "watcher.cleaning_finished_subtitle"),
+		b.tUser(chatID, "report.lbl_time"), r.DurationMin, b.tUser(chatID, "report.min"), r.DurationSec, b.tUser(chatID, "report.sec"),
+		b.tUser(chatID, "report.lbl_area"), r.AreaM2,
+		b.tUser(chatID, "report.lbl_battery"), r.StartBattery, r.EndBattery, r.BatteryUsed,
+		b.tUser(chatID, "report.lbl_rooms"), r.Rooms,
 	)
 }

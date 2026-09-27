@@ -324,6 +324,7 @@ func (b *Bot) handleWizardCallback(cb *telegram.CallbackQuery) bool {
 
 		b.SetRobotStatus("cleaning", "none")
 		b.StartSession(targetNames, b.getBatteryLevel())
+		b.LogAction(cb.From.ID, "wizard_clean", strings.Join(targetNames, ", "))
 
 		modeTitle := "—"
 		if ws.Mode != "" {
