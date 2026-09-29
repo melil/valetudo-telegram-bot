@@ -2,11 +2,13 @@ package update
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -78,13 +80,30 @@ func NewService(
 		cfg.Repo = "melil/valetudo-telegram-bot"
 	}
 
+	downloadTransport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     false,
+		TLSNextProto:          make(map[string]func(string, *tls.Conn) http.RoundTripper),
+		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
+		DisableKeepAlives:     true, // Prevent unexpected EOF from stale keep-alive sockets
+		MaxIdleConns:          10,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   15 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+	}
+
 	downloadClient := &http.Client{
-		Timeout: 0, // No client-level hard timeout; controlled by context.WithTimeout
+		Transport: downloadTransport,
+		Timeout:   0, // Controlled by context.WithTimeout
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return errors.New("stopped after 10 redirects")
 			}
-			// When redirecting across hosts (e.g. github.com -> s3.amazonaws.com), drop Authorization header
+			// When redirecting across hosts (e.g. github.com -> s3/azure blob), drop Authorization header
 			if len(via) > 0 && req.URL.Host != via[0].URL.Host {
 				req.Header.Del("Authorization")
 			}
@@ -244,50 +263,13 @@ func (s *Service) ApplyUpdate(ctx context.Context, rel *ReleaseInfo, chatID int6
 	targetDir := filepath.Dir(targetPath)
 	tempPath := filepath.Join(targetDir, fmt.Sprintf("tgbot_new_%d", time.Now().UnixNano()))
 
-	// Download binary with timeout (up to 15 minutes)
+	// Download binary with timeout (up to 15 minutes) and retry/resume support
 	downloadCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, rel.AssetURL, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create download request: %w", err)
-	}
-	req.Header.Set("User-Agent", "Valetudo-Telegram-Bot")
-	req.Header.Set("Accept", "application/octet-stream")
-	if s.cfg.GitHubToken != "" {
-		req.Header.Set("Authorization", "Bearer "+s.cfg.GitHubToken)
-	}
-
-	resp, err := s.downloadClient.Do(req)
-	if err != nil {
+	if err := s.downloadFileWithRetry(downloadCtx, rel.AssetURL, tempPath, rel.AssetSize); err != nil {
+		_ = os.Remove(tempPath)
 		return fmt.Errorf("failed to download release asset: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download asset failed with HTTP %d", resp.StatusCode)
-	}
-
-	outFile, err := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
-	if err != nil {
-		return fmt.Errorf("failed to create temporary binary file: %w", err)
-	}
-
-	buf := make([]byte, 128*1024)
-	written, err := io.CopyBuffer(outFile, resp.Body, buf)
-	_ = outFile.Sync()
-	_ = outFile.Close()
-
-	if err != nil {
-		_ = os.Remove(tempPath)
-		return fmt.Errorf("failed to write binary: %w", err)
-	}
-
-	log.Printf("Update binary downloaded successfully: %d bytes", written)
-
-	if written == 0 {
-		_ = os.Remove(tempPath)
-		return errors.New("downloaded binary is empty")
 	}
 
 	// Make executable
@@ -316,6 +298,103 @@ func (s *Service) ApplyUpdate(ctx context.Context, rel *ReleaseInfo, chatID int6
 	}()
 
 	return nil
+}
+
+// downloadFileWithRetry downloads a file with automatic retries and Range resume.
+func (s *Service) downloadFileWithRetry(ctx context.Context, url string, destPath string, expectedSize int64) error {
+	outFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_RDWR, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create temporary binary file: %w", err)
+	}
+	defer outFile.Close()
+
+	var downloaded int64
+	if fi, err := outFile.Stat(); err == nil {
+		downloaded = fi.Size()
+	}
+
+	maxRetries := 5
+	buf := make([]byte, 128*1024)
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if attempt > 1 {
+			log.Printf("UpdateService: retry download attempt %d/%d (resuming from %d bytes)...", attempt, maxRetries, downloaded)
+		}
+
+		_, err = outFile.Seek(downloaded, io.SeekStart)
+		if err != nil {
+			downloaded = 0
+			_ = outFile.Truncate(0)
+			_, _ = outFile.Seek(0, io.SeekStart)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create download request: %w", err)
+		}
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ValetudoBot/1.0)")
+		req.Header.Set("Accept", "application/octet-stream")
+		if s.cfg.GitHubToken != "" {
+			req.Header.Set("Authorization", "Bearer "+s.cfg.GitHubToken)
+		}
+		if downloaded > 0 {
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", downloaded))
+		}
+
+		resp, err := s.downloadClient.Do(req)
+		if err != nil {
+			log.Printf("UpdateService: request error on attempt %d: %v. Retrying in %ds...", attempt, err, attempt*2)
+			time.Sleep(time.Duration(attempt*2) * time.Second)
+			continue
+		}
+
+		// Handle range response vs full response
+		if resp.StatusCode == http.StatusOK {
+			// Server sent full file from start
+			downloaded = 0
+			_ = outFile.Truncate(0)
+			_, _ = outFile.Seek(0, io.SeekStart)
+		} else if resp.StatusCode != http.StatusPartialContent && resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			log.Printf("UpdateService: server returned HTTP %d on attempt %d. Retrying...", resp.StatusCode, attempt)
+			time.Sleep(time.Duration(attempt*2) * time.Second)
+			continue
+		}
+
+		written, copyErr := io.CopyBuffer(outFile, resp.Body, buf)
+		resp.Body.Close()
+		downloaded += written
+		_ = outFile.Sync()
+
+		if copyErr != nil {
+			log.Printf("UpdateService: connection broken during download at %d bytes (attempt %d/%d): %v", downloaded, attempt, maxRetries, copyErr)
+			time.Sleep(time.Duration(attempt*2) * time.Second)
+			continue
+		}
+
+		if expectedSize > 0 && downloaded < expectedSize {
+			log.Printf("UpdateService: downloaded %d bytes, expected %d. Retrying...", downloaded, expectedSize)
+			time.Sleep(time.Duration(attempt*2) * time.Second)
+			continue
+		}
+
+		if downloaded == 0 {
+			log.Printf("UpdateService: downloaded 0 bytes. Retrying...")
+			time.Sleep(time.Duration(attempt*2) * time.Second)
+			continue
+		}
+
+		log.Printf("UpdateService: binary successfully downloaded: %d bytes (in %d attempt(s))", downloaded, attempt)
+		return nil
+	}
+
+	return fmt.Errorf("failed to download release asset after %d attempts", maxRetries)
 }
 
 // CheckAndNotifyPostUpdate checks on bot startup if an update was just completed.
