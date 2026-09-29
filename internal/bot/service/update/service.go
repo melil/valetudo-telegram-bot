@@ -50,7 +50,8 @@ type Service struct {
 	db          domain.UserRepository
 	tg          domain.Messenger
 	authSvc     *auth.Service
-	httpClient  *http.Client
+	apiClient   *http.Client
+	downloadClient *http.Client
 	getUserLang func(chatID int64) i18n.Locale
 
 	isUpdating  bool
@@ -77,14 +78,29 @@ func NewService(
 		cfg.Repo = "melil/valetudo-telegram-bot"
 	}
 
+	downloadClient := &http.Client{
+		Timeout: 0, // No client-level hard timeout; controlled by context.WithTimeout
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return errors.New("stopped after 10 redirects")
+			}
+			// When redirecting across hosts (e.g. github.com -> s3.amazonaws.com), drop Authorization header
+			if len(via) > 0 && req.URL.Host != via[0].URL.Host {
+				req.Header.Del("Authorization")
+			}
+			return nil
+		},
+	}
+
 	return &Service{
-		cfg:         cfg,
-		db:          db,
-		tg:          tg,
-		authSvc:     authSvc,
-		httpClient:  &http.Client{Timeout: 60 * time.Second},
-		getUserLang: getUserLang,
-		exePathFunc: os.Executable,
+		cfg:            cfg,
+		db:             db,
+		tg:             tg,
+		authSvc:        authSvc,
+		apiClient:      &http.Client{Timeout: 30 * time.Second},
+		downloadClient: downloadClient,
+		getUserLang:    getUserLang,
+		exePathFunc:    os.Executable,
 		restartFunc: func() {
 			log.Println("Restarting bot process after update...")
 			os.Exit(0)
@@ -122,7 +138,7 @@ func (s *Service) CheckForUpdate(ctx context.Context) (*ReleaseInfo, bool, error
 		req.Header.Set("Authorization", "Bearer "+s.cfg.GitHubToken)
 	}
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.apiClient.Do(req)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to query GitHub Releases API: %w", err)
 	}
@@ -228,8 +244,8 @@ func (s *Service) ApplyUpdate(ctx context.Context, rel *ReleaseInfo, chatID int6
 	targetDir := filepath.Dir(targetPath)
 	tempPath := filepath.Join(targetDir, fmt.Sprintf("tgbot_new_%d", time.Now().UnixNano()))
 
-	// Download binary with timeout
-	downloadCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	// Download binary with timeout (up to 15 minutes)
+	downloadCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(downloadCtx, http.MethodGet, rel.AssetURL, nil)
@@ -242,7 +258,7 @@ func (s *Service) ApplyUpdate(ctx context.Context, rel *ReleaseInfo, chatID int6
 		req.Header.Set("Authorization", "Bearer "+s.cfg.GitHubToken)
 	}
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.downloadClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download release asset: %w", err)
 	}
@@ -257,7 +273,8 @@ func (s *Service) ApplyUpdate(ctx context.Context, rel *ReleaseInfo, chatID int6
 		return fmt.Errorf("failed to create temporary binary file: %w", err)
 	}
 
-	written, err := io.Copy(outFile, resp.Body)
+	buf := make([]byte, 128*1024)
+	written, err := io.CopyBuffer(outFile, resp.Body, buf)
 	_ = outFile.Sync()
 	_ = outFile.Close()
 
@@ -265,6 +282,8 @@ func (s *Service) ApplyUpdate(ctx context.Context, rel *ReleaseInfo, chatID int6
 		_ = os.Remove(tempPath)
 		return fmt.Errorf("failed to write binary: %w", err)
 	}
+
+	log.Printf("Update binary downloaded successfully: %d bytes", written)
 
 	if written == 0 {
 		_ = os.Remove(tempPath)
