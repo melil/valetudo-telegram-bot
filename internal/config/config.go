@@ -42,8 +42,12 @@ func Load() (*Config, error) {
 	}
 
 	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "bot.db"
+	if dbPath == "" || dbPath == "bot.db" {
+		if _, err := os.Stat("/data/tgbot"); err == nil {
+			dbPath = "/data/tgbot/bot.db"
+		} else if dbPath == "" {
+			dbPath = "bot.db"
+		}
 	}
 
 	valetudoURL := os.Getenv("VALETUDO_BASE_URL")

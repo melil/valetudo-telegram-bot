@@ -25,10 +25,22 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		case <-ticker.C:
 		}
 
-		attrs, err := b.val.GetAttributes()
-		if err != nil {
-			continue
-		}
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("statusWatcher: перехвачена паника: %v", r)
+				}
+			}()
+
+			// Автоматическая загрузка возможностей, если Valetudo был недоступен при старте
+			if len(b.Caps().List()) == 0 {
+				_ = b.LoadCapabilities()
+			}
+
+			attrs, err := b.val.GetAttributes()
+			if err != nil {
+				return
+			}
 
 		currentStatus := ""
 		currentErrorFlag := "none"
@@ -76,7 +88,7 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 			lastCleanWater = currentCleanWater
 			lastDirtyWater = currentDirtyWater
 			firstRun = false
-			continue
+			return
 		}
 
 		if currentStatus == "error" && (lastStatus != "error" || currentErrorFlag != lastErrorFlag) {
@@ -138,5 +150,6 @@ func (b *Bot) statusWatcher(ctx context.Context) {
 		lastErrorFlag = currentErrorFlag
 		lastCleanWater = currentCleanWater
 		lastDirtyWater = currentDirtyWater
+		}()
 	}
 }

@@ -33,21 +33,21 @@ if (-not (Test-Path "tgbot")) {
 
 $Target = "$RobotUser@$RobotIP"
 
-# 2. Stop running bot on robot
+# 2. Stop running bot and supervisor on robot
 Write-Host "[*] Stopping tgbot on $Target..." -ForegroundColor Yellow
-ssh -o ConnectTimeout=5 $Target "killall -9 tgbot 2>/dev/null || true"
+ssh -o ConnectTimeout=5 $Target "killall run.sh tgbot 2>/dev/null || true; rm -f /var/run/tgbot_run.pid"
 
-# 3. Upload binary to robot
-Write-Host "[*] Uploading tgbot to ${Target}:/data/tgbot/..." -ForegroundColor Cyan
-scp -o ConnectTimeout=10 tgbot "${Target}:/data/tgbot/"
+# 3. Upload binary and supervisor script to robot
+Write-Host "[*] Uploading tgbot and run.sh to ${Target}:/data/tgbot/..." -ForegroundColor Cyan
+scp -o ConnectTimeout=10 tgbot run.sh "${Target}:/data/tgbot/"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[-] SCP upload failed!" -ForegroundColor Red
     exit $LASTEXITCODE
 }
 
-# 4. Start bot on robot
-Write-Host "[*] Starting bot on robot..." -ForegroundColor Cyan
-ssh -o ConnectTimeout=5 $Target "chmod +x /data/tgbot/tgbot; nohup /data/tgbot/run.sh > /tmp/log/custom/tgbot.log 2>&1 &"
+# 4. Start supervisor on robot
+Write-Host "[*] Starting bot supervisor on robot..." -ForegroundColor Cyan
+ssh -o ConnectTimeout=5 $Target "chmod +x /data/tgbot/tgbot /data/tgbot/run.sh; nohup /data/tgbot/run.sh >/dev/null 2>&1 &"
 
 Write-Host "[+] Deployment completed successfully!" -ForegroundColor Green
 Write-Host "[i] View logs: ssh $Target tail -f /tmp/log/custom/tgbot.log" -ForegroundColor DarkGray

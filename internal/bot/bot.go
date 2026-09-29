@@ -268,8 +268,13 @@ func (b *Bot) SetDashboardMsgID(msgID int) {
 func (b *Bot) SetDashboardMsgIDForChat(chatID int64, msgID int) {
 	b.dashMu.Lock()
 	defer b.dashMu.Unlock()
+	if b.dashboards[chatID] == msgID {
+		return
+	}
 	b.dashboards[chatID] = msgID
-	b.dashboardMsgID = msgID
+	if chatID == b.cfg.AllowedChatID {
+		b.dashboardMsgID = msgID
+	}
 
 	if b.db != nil && chatID != 0 {
 		_ = b.db.SetUserDashboardMsgID(chatID, msgID)
@@ -352,25 +357,39 @@ func (b *Bot) Run(ctx context.Context) error {
 			offset = update.UpdateID + 1
 
 			if update.Message != nil {
-				if b.isUserAllowed(update.Message.Chat.ID) {
-					b.handleTextCommand(update.Message)
-				} else {
-					b.handleUnauthorizedAccess(update.Message)
-				}
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Printf("handleMessage: перехвачена паника: %v", r)
+						}
+					}()
+					if b.isUserAllowed(update.Message.Chat.ID) {
+						b.handleTextCommand(update.Message)
+					} else {
+						b.handleUnauthorizedAccess(update.Message)
+					}
+				}()
 			}
 
 			if update.CallbackQuery != nil {
-				// 1. Проверяем действия авторизации администратором (кнопки Разрешить / Отклонить)
-				if b.handleAuthCallback(update.CallbackQuery) {
-					continue
-				}
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							log.Printf("handleCallbackQuery: перехвачена паника: %v", r)
+						}
+					}()
+					// 1. Проверяем действия авторизации администратором (кнопки Разрешить / Отклонить)
+					if b.handleAuthCallback(update.CallbackQuery) {
+						return
+					}
 
-				// 2. Для остальных кнопок проверяем, разрешен ли доступ пользователю
-				if b.isUserAllowed(update.CallbackQuery.From.ID) {
-					b.handleCallback(update.CallbackQuery)
-				} else {
-					_ = b.tg.AnswerCallbackQueryAlert(update.CallbackQuery.ID, "⛔ У вас нет доступа.", true)
-				}
+					// 2. Для остальных кнопок проверяем, разрешен ли доступ пользователю
+					if b.isUserAllowed(update.CallbackQuery.From.ID) {
+						b.handleCallback(update.CallbackQuery)
+					} else {
+						_ = b.tg.AnswerCallbackQueryAlert(update.CallbackQuery.ID, "⛔ У вас нет доступа.", true)
+					}
+				}()
 			}
 		}
 	}
