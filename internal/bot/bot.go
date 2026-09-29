@@ -2,11 +2,18 @@ package bot
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"sync"
 	"time"
 
+	delivery "tgbot/internal/bot/delivery/telegram"
+	"tgbot/internal/bot/domain"
+	"tgbot/internal/bot/service/auth"
+	"tgbot/internal/bot/service/cleaning"
+	"tgbot/internal/bot/service/consumables"
+	"tgbot/internal/bot/service/session"
+	"tgbot/internal/bot/service/system"
+	"tgbot/internal/bot/service/watcher"
 	"tgbot/internal/config"
 	"tgbot/internal/database"
 	"tgbot/internal/i18n"
@@ -14,11 +21,30 @@ import (
 	"tgbot/internal/valetudo"
 )
 
+// Re-export domain models as type aliases for seamless compatibility.
+type CleaningReport = domain.CleaningReport
+type CleaningSession = domain.CleaningSession
+type ConsumableDisplayInfo = domain.ConsumableDisplayInfo
+type RoomInfo = domain.RoomInfo
+type WizardSession = domain.WizardSession
+type RuntimeStats = domain.RuntimeStats
+type HostStats = domain.HostStats
+
+// Bot acts as the composition root and orchestrator.
 type Bot struct {
 	cfg *config.Config
 	tg  *telegram.Client
 	val *valetudo.Client
 	db  *database.DB
+
+	// Services
+	authSvc        *auth.Service
+	cleaningSvc    *cleaning.WizardService
+	consumablesSvc *consumables.Service
+	sessionSvc     *session.Service
+	systemSvc      *system.Service
+	watcherSvc     *watcher.Service
+	handler        *delivery.Handler
 
 	capsMu sync.RWMutex
 	caps   *valetudo.CapabilitySet
@@ -34,16 +60,6 @@ type Bot struct {
 	dashboards     map[int64]int
 	dashboardMsgID int
 	activeChatID   int64
-
-	wizardMu      sync.Mutex
-	activeWizards map[int64]*WizardSession
-
-	sessionMu  sync.RWMutex
-	session    CleaningSession
-	lastReport *CleaningReport
-
-	authReqMu       sync.Mutex
-	lastAuthReqTime map[int64]time.Time
 
 	startTime time.Time
 }
@@ -61,20 +77,99 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client, db ...*d
 		}
 	}
 
-	return &Bot{
-		cfg:             cfg,
-		tg:              tg,
-		val:             val,
-		db:              userDB,
-		caps:            valetudo.NewCapabilitySet(nil),
-		lastStatus:      "docked",
-		lastFlag:        "none",
-		lang:            i18n.NormalizeLocale(cfg.DefaultLang),
-		dashboards:      initialDashboards,
-		activeWizards:   make(map[int64]*WizardSession),
-		lastAuthReqTime: make(map[int64]time.Time),
-		startTime:       time.Now(),
+	b := &Bot{
+		cfg:        cfg,
+		tg:         tg,
+		val:        val,
+		db:         userDB,
+		caps:       valetudo.NewCapabilitySet(nil),
+		lastStatus: "docked",
+		lastFlag:   "none",
+		lang:       i18n.NormalizeLocale(cfg.DefaultLang),
+		dashboards: initialDashboards,
+		startTime:  time.Now(),
 	}
+
+	var uRepo domain.UserRepository
+	if userDB != nil {
+		uRepo = userDB
+	}
+
+	// Initialize application services (SOLID Dependency Inversion)
+	b.authSvc = auth.NewService(cfg.AllowedChatID, uRepo, tg, b.GetUserLang)
+	b.cleaningSvc = cleaning.NewWizardService(val, cfg.RoomAliases)
+	b.consumablesSvc = consumables.NewService(val)
+	b.sessionSvc = session.NewService(val)
+	b.systemSvc = system.NewService()
+
+	b.handler = delivery.NewHandler(
+		tg,
+		val,
+		uRepo,
+		b.authSvc,
+		b.cleaningSvc,
+		b.consumablesSvc,
+		b.sessionSvc,
+		b.systemSvc,
+		b,
+	)
+
+	b.watcherSvc = watcher.NewService(
+		val,
+		tg,
+		b.authSvc,
+		b.sessionSvc,
+		watcher.Config{
+			Interval:    cfg.WatcherInterval,
+			IsDNDActive: cfg.IsDNDActive,
+			OnStatusUpdate: func(status, flag string) {
+				b.SetRobotStatus(status, flag)
+			},
+			OnLoadCapabilities: func() error {
+				if len(b.Caps().List()) == 0 {
+					return b.LoadCapabilities()
+				}
+				return nil
+			},
+			OnBroadcastDash: func() {
+				b.broadcastMainDashboard()
+			},
+			FormatCaption: func(report *domain.CleaningReport, chatID int64) string {
+				return b.formatReportCaptionForChat(report, chatID)
+			},
+			TranslateUser: func(chatID int64, key string, args ...any) string {
+				return b.tUser(chatID, key, args...)
+			},
+		},
+	)
+
+	return b
+}
+
+func (b *Bot) GetCaps() *valetudo.CapabilitySet {
+	return b.Caps()
+}
+
+func (b *Bot) Caps() *valetudo.CapabilitySet {
+	b.capsMu.RLock()
+	defer b.capsMu.RUnlock()
+	return b.caps
+}
+
+func (b *Bot) SetCaps(cs *valetudo.CapabilitySet) {
+	b.capsMu.Lock()
+	defer b.capsMu.Unlock()
+	b.caps = cs
+}
+
+func (b *Bot) LoadCapabilities() error {
+	rawCaps, err := b.val.GetCapabilities()
+	if err != nil {
+		return err
+	}
+	b.SetCaps(valetudo.NewCapabilitySet(rawCaps))
+	log.Printf("Загружено возможностей робота: %d (%v)", len(rawCaps), rawCaps)
+	return nil
 }
 
 func (b *Bot) GetRobotStatus() (string, string) {
@@ -108,85 +203,6 @@ func (b *Bot) RefreshRobotStatus() (string, string) {
 	return b.GetRobotStatus()
 }
 
-func (b *Bot) formatStatusDisplay(status, flag string) string {
-	var icon, title string
-
-	switch status {
-	case "docked":
-		icon = "🏠"
-		title = b.t("statuses.docked")
-	case "cleaning":
-		switch flag {
-		case "segment":
-			icon = "🧹"
-			title = b.t("statuses.cleaning_segment")
-		case "zone":
-			icon = "🧹"
-			title = b.t("statuses.cleaning_zone")
-		case "spot":
-			icon = "🎯"
-			title = b.t("statuses.cleaning_spot")
-		case "mapping":
-			icon = "🗺"
-			title = b.t("statuses.cleaning_mapping")
-		default:
-			icon = "🧹"
-			title = b.t("statuses.cleaning")
-		}
-	case "paused":
-		icon = "⏸"
-		title = b.t("statuses.paused")
-	case "returning":
-		icon = "🏠"
-		title = b.t("statuses.returning")
-	case "idle":
-		icon = "💤"
-		title = b.t("statuses.idle")
-	case "moving":
-		icon = "🚗"
-		title = b.t("statuses.moving")
-	case "manual_control":
-		icon = "🎮"
-		title = b.t("statuses.manual_control")
-	case "error":
-		icon = "🚨"
-		title = b.t("statuses.error")
-		if flag != "" && flag != "none" {
-			title += " (" + flag + ")"
-		}
-	default:
-		icon = "🤖"
-		title = status
-		if title == "" {
-			title = b.t("statuses.unknown")
-		}
-	}
-
-	return fmt.Sprintf("%s %s", icon, title)
-}
-
-func (b *Bot) Caps() *valetudo.CapabilitySet {
-	b.capsMu.RLock()
-	defer b.capsMu.RUnlock()
-	return b.caps
-}
-
-func (b *Bot) SetCaps(cs *valetudo.CapabilitySet) {
-	b.capsMu.Lock()
-	defer b.capsMu.Unlock()
-	b.caps = cs
-}
-
-func (b *Bot) LoadCapabilities() error {
-	rawCaps, err := b.val.GetCapabilities()
-	if err != nil {
-		return err
-	}
-	b.SetCaps(valetudo.NewCapabilitySet(rawCaps))
-	log.Printf("Загружено возможностей робота: %d (%v)", len(rawCaps), rawCaps)
-	return nil
-}
-
 func (b *Bot) GetLang() i18n.Locale {
 	b.langMu.RLock()
 	defer b.langMu.RUnlock()
@@ -212,23 +228,14 @@ func (b *Bot) GetUserLang(chatID int64) i18n.Locale {
 	return b.GetLang()
 }
 
-func (b *Bot) t(key string, args ...any) string {
-	return i18n.T(b.GetUserLang(b.GetActiveChatID()), key, args...)
-}
-
-func (b *Bot) tUser(chatID int64, key string, args ...any) string {
-	return i18n.T(b.GetUserLang(chatID), key, args...)
-}
-
-func (b *Bot) LogAction(chatID int64, action, details string) {
-	if b.db == nil {
-		return
+func (b *Bot) SetUserLang(chatID int64, loc i18n.Locale) {
+	norm := i18n.NormalizeLocale(string(loc))
+	if chatID == b.cfg.AllowedChatID {
+		b.SetLang(norm)
 	}
-	var username string
-	if u, err := b.db.GetUser(chatID); err == nil && u != nil {
-		username = u.Username
+	if b.db != nil && chatID != 0 {
+		_ = b.db.SetUserLocale(chatID, string(norm))
 	}
-	_ = b.db.LogAction(chatID, username, action, details)
 }
 
 func (b *Bot) SetActiveChatID(chatID int64) {
@@ -281,6 +288,31 @@ func (b *Bot) SetDashboardMsgIDForChat(chatID int64, msgID int) {
 	}
 }
 
+func (b *Bot) ResetDashboard(chatID int64) {
+	b.dashMu.Lock()
+	oldDashID := b.dashboards[chatID]
+	if oldDashID == 0 && chatID == b.cfg.AllowedChatID {
+		oldDashID = b.dashboardMsgID
+	}
+	b.dashboards[chatID] = 0
+	if chatID == b.cfg.AllowedChatID {
+		b.dashboardMsgID = 0
+	}
+	b.dashMu.Unlock()
+
+	if b.db != nil {
+		_ = b.db.SetUserDashboardMsgID(chatID, 0)
+	}
+
+	if oldDashID != 0 {
+		_ = b.tg.DeleteMessage(chatID, oldDashID)
+	}
+}
+
+func (b *Bot) RenderDashboard(chatID int64, text string, markup *telegram.InlineKeyboardMarkup) error {
+	return b.renderDashboardForChat(chatID, text, markup)
+}
+
 func (b *Bot) renderDashboard(text string, markup *telegram.InlineKeyboardMarkup) error {
 	return b.renderDashboardForChat(b.GetActiveChatID(), text, markup)
 }
@@ -327,6 +359,183 @@ func (b *Bot) renderDashboardForChat(chatID int64, text string, markup *telegram
 	return err
 }
 
+func (b *Bot) IsDNDActive() bool {
+	return b.cfg.IsDNDActive()
+}
+
+func (b *Bot) GetStartTime() time.Time {
+	return b.startTime
+}
+
+func (b *Bot) LogAction(chatID int64, action, details string) {
+	if b.db == nil {
+		return
+	}
+	var username string
+	if u, err := b.db.GetUser(chatID); err == nil && u != nil {
+		username = u.Username
+	}
+	_ = b.db.LogAction(chatID, username, action, details)
+}
+
+func (b *Bot) t(key string, args ...any) string {
+	return i18n.T(b.GetUserLang(b.GetActiveChatID()), key, args...)
+}
+
+func (b *Bot) tUser(chatID int64, key string, args ...any) string {
+	return i18n.T(b.GetUserLang(chatID), key, args...)
+}
+
+// Delegates for backward compatibility with tests & existing code
+
+func (b *Bot) isUserAllowed(chatID int64) bool {
+	return b.authSvc.IsUserAllowed(chatID)
+}
+
+func (b *Bot) isUserAdmin(chatID int64) bool {
+	return b.authSvc.IsUserAdmin(chatID)
+}
+
+func (b *Bot) handleUnauthorizedAccess(msg *telegram.Message) {
+	b.authSvc.HandleUnauthorizedAccess(msg)
+}
+
+func (b *Bot) handleAuthCallback(cb *telegram.CallbackQuery) bool {
+	return b.authSvc.HandleAuthCallback(cb)
+}
+
+func (b *Bot) getAdminChatIDs() []int64 {
+	return b.authSvc.GetAdminChatIDs()
+}
+
+func (b *Bot) getAllUserChatIDs() []int64 {
+	return b.authSvc.GetAllUserChatIDs()
+}
+
+func (b *Bot) getNotifyChatIDs(prefType string) []int64 {
+	return b.authSvc.GetNotifyChatIDs(prefType)
+}
+
+func (b *Bot) handleTextCommand(msg *telegram.Message) {
+	b.SetActiveChatID(msg.Chat.ID)
+	b.handler.HandleTextCommand(msg)
+}
+
+func (b *Bot) handleCallback(cb *telegram.CallbackQuery) {
+	b.SetActiveChatID(cb.From.ID)
+	b.handler.HandleCallback(cb)
+}
+
+func (b *Bot) getMainMenuMarkup() *telegram.ReplyKeyboardMarkup {
+	status, flag := b.GetRobotStatus()
+	return delivery.GetMainMenuMarkup(b.Caps(), status, flag, b.GetLang())
+}
+
+func (b *Bot) sendMainDashboard() {
+	b.handler.SendMainDashboard(b.GetActiveChatID())
+}
+
+func (b *Bot) getMainDashboard() (string, *telegram.InlineKeyboardMarkup) {
+	status, flag := b.GetRobotStatus()
+	return delivery.GetMainDashboard(b.Caps(), status, flag, b.sessionSvc.GetLastReport(), b.val, b.GetLang())
+}
+
+func (b *Bot) getMainDashboardForChat(chatID int64) (string, *telegram.InlineKeyboardMarkup) {
+	status, flag := b.GetRobotStatus()
+	return delivery.GetMainDashboard(b.Caps(), status, flag, b.sessionSvc.GetLastReport(), b.val, b.GetUserLang(chatID))
+}
+
+func (b *Bot) broadcastMainDashboard() {
+	for _, chatID := range b.authSvc.GetAllUserChatIDs() {
+		text, markup := b.getMainDashboardForChat(chatID)
+		_ = b.renderDashboardForChat(chatID, text, markup)
+	}
+}
+
+func (b *Bot) formatStatusDisplay(status, flag string) string {
+	return delivery.FormatStatusDisplay(status, flag, b.GetLang())
+}
+
+func (b *Bot) formatModeTitle(mode string) string {
+	return delivery.FormatModeTitle(mode, b.GetLang())
+}
+
+func (b *Bot) formatReportAlert(r *CleaningReport) string {
+	return delivery.FormatReportAlert(r, b.GetLang())
+}
+
+func (b *Bot) formatReportCaption(r *CleaningReport) string {
+	return b.formatReportCaptionForChat(r, b.GetActiveChatID())
+}
+
+func (b *Bot) formatReportCaptionForChat(r *CleaningReport, chatID int64) string {
+	return delivery.FormatReportCaptionForChat(r, chatID, b.val, b.GetUserLang(chatID))
+}
+
+func (b *Bot) buildTelemetryReport() string {
+	hStats := b.systemSvc.CollectHost()
+	status, flag := b.GetRobotStatus()
+	return delivery.BuildTelemetryReport(b.val, b.consumablesSvc, hStats.OSUptime, b.GetLang(), b.formatStatusDisplay(status, flag))
+}
+
+func (b *Bot) buildResourcesReport() string {
+	rStats := b.systemSvc.CollectRuntime(b.startTime)
+	hStats := b.systemSvc.CollectHost()
+	return delivery.BuildResourcesReport(rStats, hStats, b.GetLang())
+}
+
+func (b *Bot) getRooms() ([]RoomInfo, error) {
+	return b.cleaningSvc.GetRooms(b.GetLang())
+}
+
+func (b *Bot) getConsumablesDisplay() ([]ConsumableDisplayInfo, error) {
+	return b.consumablesSvc.GetConsumablesDisplay(b.GetLang())
+}
+
+func (b *Bot) StartSession(rooms []string, startBattery int) {
+	b.sessionSvc.StartSession(rooms, startBattery)
+}
+
+func (b *Bot) SetSessionStartTime(t time.Time) {
+	b.sessionSvc.SetStartTime(t)
+}
+
+func (b *Bot) UpdateSessionStats(min, sec int, areaM2 float64) {
+	b.sessionSvc.UpdateStats(min, sec, areaM2)
+}
+
+func (b *Bot) FinishSession(endBattery int) *CleaningReport {
+	return b.sessionSvc.FinishSession(endBattery, b.GetLang())
+}
+
+func (b *Bot) IsSessionActive() bool {
+	return b.sessionSvc.IsActive()
+}
+
+func (b *Bot) GetLastReport() *CleaningReport {
+	return b.sessionSvc.GetLastReport()
+}
+
+func (b *Bot) getBatteryLevel() int {
+	return b.sessionSvc.GetBatteryLevel()
+}
+
+func (b *Bot) getSettingsMainMenu() (string, *telegram.InlineKeyboardMarkup) {
+	return delivery.GetSettingsMainMenu(b.Caps(), b.db != nil, b.isUserAdmin(b.GetActiveChatID()), b.GetLang())
+}
+
+func (b *Bot) getUsersMenu(currentChatID int64) (string, *telegram.InlineKeyboardMarkup) {
+	return delivery.GetUsersMenu(b.db, currentChatID, b.GetLang())
+}
+
+func (b *Bot) getAuditLogMenu() (string, *telegram.InlineKeyboardMarkup) {
+	return delivery.GetAuditLogMenu(b.db, b.GetLang())
+}
+
+func (b *Bot) formatRemainingTime(remMin int) string {
+	return b.consumablesSvc.FormatRemainingTime(remMin, b.GetLang())
+}
+
 func (b *Bot) Run(ctx context.Context) error {
 	log.Printf("Бот запущен. Слушаю входящие обновления Telegram...\n")
 
@@ -334,8 +543,8 @@ func (b *Bot) Run(ctx context.Context) error {
 		log.Printf("Внимание: не удалось загрузить возможности робота: %v", err)
 	}
 
-	// Запуск фонового мониторинга
-	go b.statusWatcher(ctx)
+	// Запуск фонового мониторинга состояния робота
+	go b.watcherSvc.Start(ctx)
 
 	offset := 0
 	for {
@@ -378,12 +587,10 @@ func (b *Bot) Run(ctx context.Context) error {
 							log.Printf("handleCallbackQuery: перехвачена паника: %v", r)
 						}
 					}()
-					// 1. Проверяем действия авторизации администратором (кнопки Разрешить / Отклонить)
 					if b.handleAuthCallback(update.CallbackQuery) {
 						return
 					}
 
-					// 2. Для остальных кнопок проверяем, разрешен ли доступ пользователю
 					if b.isUserAllowed(update.CallbackQuery.From.ID) {
 						b.handleCallback(update.CallbackQuery)
 					} else {

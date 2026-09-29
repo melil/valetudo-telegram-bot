@@ -94,10 +94,7 @@ func TestSessionFallbackElapsed(t *testing.T) {
 	b := New(cfg, telegram.NewClient("token", "", 30), valetudo.NewClient("http://localhost:8080/api/v2/robot", time.Second))
 
 	b.StartSession(nil, 100)
-	// Simulate start time 5 minutes ago without peak stats update
-	b.sessionMu.Lock()
-	b.session.StartTime = time.Now().Add(-5*time.Minute - 10*time.Second)
-	b.sessionMu.Unlock()
+	b.SetSessionStartTime(time.Now().Add(-5*time.Minute - 10*time.Second))
 
 	report := b.FinishSession(90)
 	if report.DurationMin < 5 {
