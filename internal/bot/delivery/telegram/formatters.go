@@ -9,6 +9,7 @@ import (
 	"tgbot/internal/bot/domain"
 	"tgbot/internal/bot/service/consumables"
 	"tgbot/internal/i18n"
+	"tgbot/internal/version"
 )
 
 func RenderProgressBar(percent int) string {
@@ -256,6 +257,7 @@ func BuildResourcesReport(rStats domain.RuntimeStats, hStats domain.HostStats, l
 	sb.WriteString(fmt.Sprintf("• %s: <b>%s</b>\n", i18n.T(loc, "resources.lbl_gc"), gcInfo))
 
 	sb.WriteString(fmt.Sprintf("• %s: <b>%s</b>\n", i18n.T(loc, "resources.lbl_bot_uptime"), FormatDuration(rStats.BotUptime, loc)))
+	sb.WriteString(fmt.Sprintf("• %s: <code>%s</code>\n", i18n.T(loc, "resources.lbl_bot_version"), version.Version))
 	sb.WriteString(fmt.Sprintf("• %s: <code>%s (%s)</code>\n\n", i18n.T(loc, "resources.lbl_go_version"), rStats.GoVersion, rStats.Arch))
 
 	sb.WriteString(i18n.T(loc, "resources.sec_host") + "\n")

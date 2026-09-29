@@ -93,6 +93,11 @@ func (d *DB) InitSchema() error {
 		created_at DATETIME NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_id ON audit_logs(id DESC);
+
+	CREATE TABLE IF NOT EXISTS bot_metadata (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL
+	);
 	`
 	if _, err := d.db.Exec(query); err != nil {
 		return err
@@ -373,6 +378,30 @@ func (d *DB) GetAllUsers() ([]User, error) {
 // DeleteUser удаляет пользователя по chat_id.
 func (d *DB) DeleteUser(chatID int64) error {
 	_, err := d.db.Exec("DELETE FROM users WHERE chat_id = ?", chatID)
+	return err
+}
+
+// GetMetadata получает значение ключа из bot_metadata.
+func (d *DB) GetMetadata(key string) (string, error) {
+	var val string
+	err := d.db.QueryRow("SELECT value FROM bot_metadata WHERE key = ?", key).Scan(&val)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return val, err
+}
+
+// SetMetadata устанавливает или обновляет значение ключа в bot_metadata.
+func (d *DB) SetMetadata(key, value string) error {
+	_, err := d.db.Exec(`
+		INSERT INTO bot_metadata (key, value) VALUES (?, ?)
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value`, key, value)
+	return err
+}
+
+// DeleteMetadata удаляет ключ из bot_metadata.
+func (d *DB) DeleteMetadata(key string) error {
+	_, err := d.db.Exec("DELETE FROM bot_metadata WHERE key = ?", key)
 	return err
 }
 

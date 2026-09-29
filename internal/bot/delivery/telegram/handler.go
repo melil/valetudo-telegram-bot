@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strconv"
@@ -13,9 +14,11 @@ import (
 	"tgbot/internal/bot/service/consumables"
 	"tgbot/internal/bot/service/session"
 	"tgbot/internal/bot/service/system"
+	"tgbot/internal/bot/service/update"
 	"tgbot/internal/i18n"
 	"tgbot/internal/telegram"
 	"tgbot/internal/valetudo"
+	"tgbot/internal/version"
 )
 
 type BotFacade interface {
@@ -40,6 +43,7 @@ type Handler struct {
 	consumablesSvc *consumables.Service
 	sessionSvc     *session.Service
 	systemSvc      *system.Service
+	updateSvc      *update.Service
 	facade         BotFacade
 }
 
@@ -52,6 +56,7 @@ func NewHandler(
 	consumablesSvc *consumables.Service,
 	sessionSvc *session.Service,
 	systemSvc *system.Service,
+	updateSvc *update.Service,
 	facade BotFacade,
 ) *Handler {
 	return &Handler{
@@ -63,6 +68,7 @@ func NewHandler(
 		consumablesSvc: consumablesSvc,
 		sessionSvc:     sessionSvc,
 		systemSvc:      systemSvc,
+		updateSvc:      updateSvc,
 		facade:         facade,
 	}
 }
@@ -210,6 +216,13 @@ func (h *Handler) HandleTextCommand(msg *telegram.Message) {
 		}
 		text, markup := GetUsersMenu(h.db, chatID, loc)
 		_ = h.facade.RenderDashboard(chatID, text, markup)
+
+	case cleanText == "/update" || cleanText == "/version":
+		if !h.authSvc.IsUserAdmin(chatID) {
+			_ = h.facade.RenderDashboard(chatID, h.t(chatID, "auth.admin_only"), nil)
+			return
+		}
+		h.handleCheckUpdate(chatID, loc)
 
 	case cleanText == "/lang":
 		text, markup := GetLanguageMenu(loc)
@@ -503,6 +516,37 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 		}
 		text, markup := GetUsersMenu(h.db, chatID, loc)
 		_ = h.facade.RenderDashboard(chatID, text, markup)
+
+	case data == "sub_updates":
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		if !h.authSvc.IsUserAdmin(chatID) {
+			_ = h.tg.AnswerCallbackQueryAlert(cb.ID, h.t(chatID, "auth.admin_only"), true)
+			return
+		}
+		h.handleCheckUpdate(chatID, loc)
+
+	case strings.HasPrefix(data, "action_update_later"):
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		ver := strings.TrimPrefix(data, "action_update_later:")
+		if ver == "" || ver == "action_update_later" {
+			ver = version.Version
+		}
+		if h.updateSvc != nil {
+			_ = h.updateSvc.DismissVersion(ver)
+		}
+		_ = h.tg.AnswerCallbackQueryAlert(cb.ID, h.t(chatID, "updates.dismissed"), false)
+		isAdmin := h.authSvc.IsUserAdmin(chatID)
+		text, markup := GetSettingsMainMenu(caps, h.db != nil, isAdmin, loc)
+		_ = h.facade.RenderDashboard(chatID, text, markup)
+
+	case strings.HasPrefix(data, "action_update_bot"):
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		if !h.authSvc.IsUserAdmin(chatID) {
+			_ = h.tg.AnswerCallbackQueryAlert(cb.ID, h.t(chatID, "auth.admin_only"), true)
+			return
+		}
+		ver := strings.TrimPrefix(data, "action_update_bot:")
+		h.handleApplyUpdate(chatID, ver, loc)
 
 	case data == "sub_lang":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
@@ -827,3 +871,70 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 		log.Printf("Неизвестный callback_data: %s", data)
 	}
 }
+
+func (h *Handler) handleCheckUpdate(chatID int64, loc i18n.Locale) {
+	if h.updateSvc == nil {
+		_ = h.facade.RenderDashboard(chatID, "⚠️ Служба обновлений недоступна.", nil)
+		return
+	}
+
+	rel, hasUpdate, err := h.updateSvc.CheckForUpdate(context.Background())
+	if err != nil {
+		text := fmt.Sprintf(h.t(chatID, "updates.error_check"), err.Error())
+		markup := &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: h.t(chatID, "updates.btn_check_again"), CallbackData: "sub_updates"}},
+				{{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+			},
+		}
+		_ = h.facade.RenderDashboard(chatID, text, markup)
+		return
+	}
+
+	if hasUpdate {
+		text, markup := GetUpdateMenu(version.Version, rel, loc)
+		_ = h.facade.RenderDashboard(chatID, text, markup)
+	} else {
+		text, markup := GetUpToDateMenu(version.Version, loc)
+		_ = h.facade.RenderDashboard(chatID, text, markup)
+	}
+}
+
+func (h *Handler) handleApplyUpdate(chatID int64, targetVer string, loc i18n.Locale) {
+	if h.updateSvc == nil {
+		_ = h.facade.RenderDashboard(chatID, "⚠️ Служба обновлений недоступна.", nil)
+		return
+	}
+
+	downloadingText := fmt.Sprintf(h.t(chatID, "updates.downloading"), targetVer)
+	_ = h.facade.RenderDashboard(chatID, downloadingText, nil)
+
+	go func() {
+		rel, _, err := h.updateSvc.CheckForUpdate(context.Background())
+		if err != nil {
+			errText := fmt.Sprintf(h.t(chatID, "updates.error_apply"), err.Error())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+				},
+			}
+			_ = h.facade.RenderDashboard(chatID, errText, markup)
+			return
+		}
+
+		if err := h.updateSvc.ApplyUpdate(context.Background(), rel, chatID); err != nil {
+			errText := fmt.Sprintf(h.t(chatID, "updates.error_apply"), err.Error())
+			markup := &telegram.InlineKeyboardMarkup{
+				InlineKeyboard: [][]telegram.InlineKeyboardButton{
+					{{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+				},
+			}
+			_ = h.facade.RenderDashboard(chatID, errText, markup)
+			return
+		}
+
+		restartingText := h.t(chatID, "updates.restarting")
+		_ = h.facade.RenderDashboard(chatID, restartingText, nil)
+	}()
+}
+

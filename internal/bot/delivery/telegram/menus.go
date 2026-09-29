@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"tgbot/internal/bot/domain"
+	"tgbot/internal/bot/service/update"
 	"tgbot/internal/database"
 	"tgbot/internal/i18n"
 	"tgbot/internal/telegram"
@@ -337,11 +338,54 @@ func GetSettingsMainMenu(caps *valetudo.CapabilitySet, hasDB bool, isAdmin bool,
 		})
 	}
 
+	if isAdmin {
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: i18n.T(loc, "settings_menu.btn_updates"), CallbackData: "sub_updates"},
+		})
+	}
+
 	rows = append(rows, []telegram.InlineKeyboardButton{
 		{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_robot"},
 	})
 
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+// GetUpToDateMenu displays a message when the bot version is already up to date.
+func GetUpToDateMenu(curVer string, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
+	text := fmt.Sprintf(i18n.T(loc, "updates.up_to_date"), curVer)
+	markup := &telegram.InlineKeyboardMarkup{
+		InlineKeyboard: [][]telegram.InlineKeyboardButton{
+			{{Text: i18n.T(loc, "updates.btn_check_again"), CallbackData: "sub_updates"}},
+			{{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+		},
+	}
+	return text, markup
+}
+
+// GetUpdateMenu displays a message when a new version is available to install.
+func GetUpdateMenu(curVer string, rel *update.ReleaseInfo, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
+	body := rel.Body
+	if len(body) > 400 {
+		body = body[:400] + "..."
+	}
+	if body == "" {
+		body = i18n.T(loc, "updates.no_changelog")
+	}
+
+	text := fmt.Sprintf(i18n.T(loc, "updates.available_menu"), curVer, rel.Version, body)
+	markup := &telegram.InlineKeyboardMarkup{
+		InlineKeyboard: [][]telegram.InlineKeyboardButton{
+			{
+				{Text: i18n.T(loc, "updates.btn_update_now"), CallbackData: "action_update_bot:" + rel.Version},
+				{Text: i18n.T(loc, "updates.btn_later"), CallbackData: "action_update_later:" + rel.Version},
+			},
+			{
+				{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+			},
+		},
+	}
+	return text, markup
 }
 
 func GetUsersMenu(db domain.UserRepository, currentChatID int64, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {

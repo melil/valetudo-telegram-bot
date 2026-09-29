@@ -13,6 +13,7 @@ import (
 	"tgbot/internal/bot/service/consumables"
 	"tgbot/internal/bot/service/session"
 	"tgbot/internal/bot/service/system"
+	"tgbot/internal/bot/service/update"
 	"tgbot/internal/bot/service/watcher"
 	"tgbot/internal/config"
 	"tgbot/internal/database"
@@ -44,6 +45,7 @@ type Bot struct {
 	sessionSvc     *session.Service
 	systemSvc      *system.Service
 	watcherSvc     *watcher.Service
+	updateSvc      *update.Service
 	handler        *delivery.Handler
 
 	capsMu sync.RWMutex
@@ -101,6 +103,19 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client, db ...*d
 	b.consumablesSvc = consumables.NewService(val)
 	b.sessionSvc = session.NewService(val)
 	b.systemSvc = system.NewService()
+	b.updateSvc = update.NewService(
+		update.Config{
+			Repo:          cfg.GitHubRepo,
+			GitHubToken:   cfg.GitHubToken,
+			CheckInterval: cfg.UpdateCheckInterval,
+			AutoNotify:    cfg.AutoUpdateNotify,
+			AllowedChatID: cfg.AllowedChatID,
+		},
+		uRepo,
+		tg,
+		b.authSvc,
+		b.GetUserLang,
+	)
 
 	b.handler = delivery.NewHandler(
 		tg,
@@ -111,6 +126,7 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client, db ...*d
 		b.consumablesSvc,
 		b.sessionSvc,
 		b.systemSvc,
+		b.updateSvc,
 		b,
 	)
 
@@ -543,8 +559,14 @@ func (b *Bot) Run(ctx context.Context) error {
 		log.Printf("Внимание: не удалось загрузить возможности робота: %v", err)
 	}
 
+	// Проверка и уведомление о завершении предыдущего обновления
+	b.updateSvc.CheckAndNotifyPostUpdate(ctx)
+
 	// Запуск фонового мониторинга состояния робота
 	go b.watcherSvc.Start(ctx)
+
+	// Запуск фоновой периодической проверки обновлений
+	go b.updateSvc.Start(ctx)
 
 	offset := 0
 	for {

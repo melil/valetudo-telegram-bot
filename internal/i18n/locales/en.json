@@ -76,6 +76,7 @@
     "btn_users": "👥 Users",
     "btn_notifications": "🔔 Notifications",
     "btn_audit": "📜 Action Log",
+    "btn_updates": "🔄 Updates",
     "btn_back": "⬅️ Back to Settings",
     "sub_mode_title": "🛠 <b>Select default cleaning mode:</b>",
     "sub_fan_title": "💨 <b>Select default suction power:</b>",
@@ -240,6 +241,7 @@
     "lbl_goroutines": "Goroutines",
     "lbl_gc": "Garbage Collector (GC)",
     "lbl_bot_uptime": "Bot Uptime",
+    "lbl_bot_version": "Bot Version",
     "lbl_go_version": "Runtime Version",
     "sec_host": "💻 <b>Robot Host System (Linux):</b>",
     "lbl_host_mem": "Host RAM",
@@ -294,5 +296,21 @@
     "action_user_approved": "User approved",
     "action_user_rejected": "User rejected",
     "action_user_deleted": "User deleted"
+  },
+  "updates": {
+    "title": "🔄 <b>Bot Update</b>",
+    "up_to_date": "✅ <b>You have the latest version!</b>\n\n• Current version: <code>%s</code>\n• Verified on GitHub.",
+    "available_menu": "🚀 <b>New version available!</b>\n\n• Current version: <code>%s</code>\n• New version: <code>%s</code>\n\n<b>What's new:</b>\n%s",
+    "notification_text": "🚀 <b>Bot update available!</b>\n\n• Current version: <code>%s</code>\n• New version: <code>%s</code>\n\n<b>What's new:</b>\n%s",
+    "btn_update_now": "🚀 Update now",
+    "btn_later": "⏳ Later",
+    "btn_check_again": "🔄 Check again",
+    "downloading": "⏳ <b>Downloading and installing update %s...</b>\nPlease wait, the bot will restart shortly.",
+    "restarting": "✅ <b>Update installed!</b>\nThe bot is restarting (this will take a few seconds)...",
+    "post_update_success": "🎉 <b>Bot successfully updated and running version %s!</b>",
+    "dismissed": "⏳ Update notification snoozed.",
+    "error_check": "⚠️ Failed to check for updates:\n<code>%s</code>",
+    "error_apply": "❌ Error installing update:\n<code>%s</code>",
+    "no_changelog": "No changelog provided."
   }
 }

@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release tgbot
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
+
+      - name: Build tgbot (Linux ARM64)
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "none")
+          BUILD_DATE=$(date -u +"%Y-%m-%d %H:%M:%SZ")
+          echo "Building tgbot version ${TAG_NAME} (${COMMIT_HASH}) built at ${BUILD_DATE}..."
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w -X 'tgbot/internal/version.Version=${TAG_NAME}' -X 'tgbot/internal/version.Commit=${COMMIT_HASH}' -X 'tgbot/internal/version.BuildDate=${BUILD_DATE}'" -o tgbot ./cmd/bot
+          ls -lh tgbot
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tgbot
+          generate_release_notes: true
+          name: "Release ${{ github.ref_name }}"

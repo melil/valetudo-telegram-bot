@@ -17,13 +17,18 @@ if (-not $SkipBuild) {
     $env:GOOS = "linux"
     $env:GOARCH = "arm64"
     $env:CGO_ENABLED = "0"
-    go build -ldflags="-s -w" -o tgbot ./cmd/bot
+    $gitTag = (git describe --tags --always 2>$null)
+    if (-not $gitTag) { $gitTag = "1.0.0" }
+    $gitCommit = (git rev-parse --short HEAD 2>$null)
+    $buildDate = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+    $ldFlags = "-s -w -X 'tgbot/internal/version.Version=$gitTag' -X 'tgbot/internal/version.Commit=$gitCommit' -X 'tgbot/internal/version.BuildDate=$buildDate'"
+    go build -trimpath -ldflags="$ldFlags" -o tgbot ./cmd/bot
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[-] Build failed!" -ForegroundColor Red
         exit $LASTEXITCODE
     }
     $sizeMB = [math]::Round(((Get-Item tgbot).Length / 1MB), 2)
-    Write-Host "[+] Binary built successfully ($sizeMB MB)" -ForegroundColor Green
+    Write-Host "[+] Binary built successfully ($sizeMB MB, version: $gitTag)" -ForegroundColor Green
 }
 
 if (-not (Test-Path "tgbot")) {

@@ -180,9 +180,9 @@ func TestSettingsMenuMapping(t *testing.T) {
 	}))
 
 	_, markup := b.getSettingsMainMenu()
-	// Should contain: btn_fan, btn_lang, btn_back (3 rows)
-	if len(markup.InlineKeyboard) != 3 {
-		t.Fatalf("expected 3 items in settings menu, got %d", len(markup.InlineKeyboard))
+	// Should contain: btn_fan, btn_lang, btn_updates, btn_back (4 rows)
+	if len(markup.InlineKeyboard) != 4 {
+		t.Fatalf("expected 4 items in settings menu, got %d", len(markup.InlineKeyboard))
 	}
 
 	callbacks := []string{}
@@ -192,7 +192,7 @@ func TestSettingsMenuMapping(t *testing.T) {
 		}
 	}
 
-	expected := []string{"sub_fan", "sub_lang", "menu_robot"}
+	expected := []string{"sub_fan", "sub_lang", "sub_updates", "menu_robot"}
 	for i, exp := range expected {
 		if callbacks[i] != exp {
 			t.Errorf("callback[%d]: expected %q, got %q", i, exp, callbacks[i])

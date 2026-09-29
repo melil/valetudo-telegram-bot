@@ -57,6 +57,9 @@ type UserRepository interface {
 	GetAllDashboardMsgIDs() (map[int64]int, error)
 	GetRecentAuditLogs(limit int) ([]database.AuditLog, error)
 	BootstrapAdmin(defaultAdminChatID int64, username string) error
+	GetMetadata(key string) (string, error)
+	SetMetadata(key, value string) error
+	DeleteMetadata(key string) error
 }
 
 // SystemCollector abstracts runtime and OS hardware statistics collection.

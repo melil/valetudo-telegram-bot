@@ -76,6 +76,7 @@
     "btn_users": "👥 Benutzer",
     "btn_notifications": "🔔 Benachrichtigungen",
     "btn_audit": "📜 Aktionsprotokoll",
+    "btn_updates": "🔄 Aktualisierungen",
     "btn_back": "⬅️ Zurück zu Einstellungen",
     "sub_mode_title": "🛠 <b>Standard-Reinigungsmodus wählen:</b>",
     "sub_fan_title": "💨 <b>Standard-Saugleistung wählen:</b>",
@@ -240,6 +241,7 @@
     "lbl_goroutines": "Goroutinen",
     "lbl_gc": "Garbage Collector (GC)",
     "lbl_bot_uptime": "Bot-Laufzeit",
+    "lbl_bot_version": "Bot-Version",
     "lbl_go_version": "Laufzeitversion",
     "sec_host": "💻 <b>Roboter-Hostsystem (Linux):</b>",
     "lbl_host_mem": "Host-RAM",
@@ -294,5 +296,21 @@
     "action_user_approved": "Benutzer genehmigt",
     "action_user_rejected": "Anfrage abgelehnt",
     "action_user_deleted": "Benutzer gelöscht"
+  },
+  "updates": {
+    "title": "🔄 <b>Bot-Aktualisierung</b>",
+    "up_to_date": "✅ <b>Sie haben die neueste Version!</b>\n\n• Aktuelle Version: <code>%s</code>\n• Auf GitHub überprüft.",
+    "available_menu": "🚀 <b>Neue Version verfügbar!</b>\n\n• Aktuelle Version: <code>%s</code>\n• Neue Version: <code>%s</code>\n\n<b>Änderungen:</b>\n%s",
+    "notification_text": "🚀 <b>Bot-Aktualisierung verfügbar!</b>\n\n• Aktuelle Version: <code>%s</code>\n• Neue Version: <code>%s</code>\n\n<b>Änderungen:</b>\n%s",
+    "btn_update_now": "🚀 Jetzt aktualisieren",
+    "btn_later": "⏳ Später",
+    "btn_check_again": "🔄 Erneut prüfen",
+    "downloading": "⏳ <b>Aktualisierung %s wird heruntergeladen...</b>\nBitte warten, der Bot startet gleich neu.",
+    "restarting": "✅ <b>Aktualisierung installiert!</b>\nDer Bot startet neu (dauert einige Sekunden)...",
+    "post_update_success": "🎉 <b>Bot erfolgreich auf Version %s aktualisiert und gestartet!</b>",
+    "dismissed": "⏳ Update-Benachrichtigung verschoben.",
+    "error_check": "⚠️ Aktualisierungsprüfung fehlgeschlagen:\n<code>%s</code>",
+    "error_apply": "❌ Fehler bei der Installation des Updates:\n<code>%s</code>",
+    "no_changelog": "Keine Änderungshinweise vorhanden."
   }
 }

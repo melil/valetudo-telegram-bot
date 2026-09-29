@@ -25,6 +25,11 @@ type Config struct {
 	DefaultLang string
 
 	RoomAliases map[string]string
+
+	GitHubRepo          string
+	GitHubToken         string
+	UpdateCheckInterval time.Duration
+	AutoUpdateNotify    bool
 }
 
 func Load() (*Config, error) {
@@ -78,8 +83,26 @@ func Load() (*Config, error) {
 		DNDEnabled:      true,
 		DNDStartHour:    23,
 		DNDEndHour:      8,
-		DefaultLang:     lang,
-		RoomAliases:     make(map[string]string),
+		DefaultLang:         lang,
+		RoomAliases:         make(map[string]string),
+		GitHubRepo:          "melil/valetudo-telegram-bot",
+		GitHubToken:         os.Getenv("GITHUB_TOKEN"),
+		UpdateCheckInterval: 6 * time.Hour,
+		AutoUpdateNotify:    true,
+	}
+
+	if repo := os.Getenv("GITHUB_REPO"); repo != "" {
+		cfg.GitHubRepo = repo
+	}
+
+	if uci := os.Getenv("UPDATE_CHECK_INTERVAL"); uci != "" {
+		if d, err := time.ParseDuration(uci); err == nil && d > 0 {
+			cfg.UpdateCheckInterval = d
+		}
+	}
+
+	if aun := os.Getenv("AUTO_UPDATE_NOTIFY"); aun != "" {
+		cfg.AutoUpdateNotify = (aun == "true" || aun == "1")
 	}
 
 	if ra := os.Getenv("ROOM_ALIASES"); ra != "" {

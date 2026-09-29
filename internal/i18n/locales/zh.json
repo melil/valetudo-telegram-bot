@@ -76,6 +76,7 @@
     "btn_users": "👥 用户管理",
     "btn_notifications": "🔔 通知设置",
     "btn_audit": "📜 操作日志",
+    "btn_updates": "🔄 检查更新",
     "btn_back": "⬅️ 返回设置",
     "sub_mode_title": "🛠 <b>请选择默认清扫模式：</b>",
     "sub_fan_title": "💨 <b>请选择默认吸力大小：</b>",
@@ -240,6 +241,7 @@
     "lbl_goroutines": "协程数 (Goroutines)",
     "lbl_gc": "垃圾回收 (GC)",
     "lbl_bot_uptime": "Bot 运行时间",
+    "lbl_bot_version": "机器人版本",
     "lbl_go_version": "运行环境版本",
     "sec_host": "💻 <b>机器人宿主系统 (Linux)：</b>",
     "lbl_host_mem": "主机物理内存",
@@ -294,5 +296,21 @@
     "action_user_approved": "批准用户",
     "action_user_rejected": "拒绝申请",
     "action_user_deleted": "删除用户"
+  },
+  "updates": {
+    "title": "🔄 <b>机器人更新</b>",
+    "up_to_date": "✅ <b>您使用的是最新版本！</b>\n\n• 当前版本：<code>%s</code>\n• 已在 GitHub 上验证。",
+    "available_menu": "🚀 <b>发现新版本！</b>\n\n• 当前版本：<code>%s</code>\n• 最新版本：<code>%s</code>\n\n<b>更新说明：</b>\n%s",
+    "notification_text": "🚀 <b>机器人有可用更新！</b>\n\n• 当前版本：<code>%s</code>\n• 最新版本：<code>%s</code>\n\n<b>更新日志：</b>\n%s",
+    "btn_update_now": "🚀 立即更新",
+    "btn_later": "⏳ 稍后",
+    "btn_check_again": "🔄 重新检查",
+    "downloading": "⏳ <b>正在下载并安装更新 %s...</b>\n请稍候，机器人即将重启。",
+    "restarting": "✅ <b>更新已安装！</b>\n机器人正在重启（耗时数秒）...",
+    "post_update_success": "🎉 <b>机器人已成功更新并运行版本 %s！</b>",
+    "dismissed": "⏳ 已推迟更新通知。",
+    "error_check": "⚠️ 检查更新失败：\n<code>%s</code>",
+    "error_apply": "❌ 安装更新时出错：\n<code>%s</code>",
+    "no_changelog": "无更新说明。"
   }
 }

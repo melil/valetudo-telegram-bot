@@ -142,3 +142,46 @@ func TestDatabase_AuditLogRingBuffer(t *testing.T) {
 		t.Errorf("expected first log to be event #105, got %s", logs[0].Details)
 	}
 }
+
+func TestDatabase_Metadata(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Key not found should return empty string, nil error
+	val, err := db.GetMetadata("non_existent")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != "" {
+		t.Errorf("expected empty string, got %q", val)
+	}
+
+	// Set and get
+	if err := db.SetMetadata("version", "1.0.0"); err != nil {
+		t.Fatalf("SetMetadata failed: %v", err)
+	}
+	val, err = db.GetMetadata("version")
+	if err != nil {
+		t.Fatalf("GetMetadata failed: %v", err)
+	}
+	if val != "1.0.0" {
+		t.Errorf("expected '1.0.0', got %q", val)
+	}
+
+	// Upsert
+	if err := db.SetMetadata("version", "1.0.1"); err != nil {
+		t.Fatalf("SetMetadata upsert failed: %v", err)
+	}
+	val, err = db.GetMetadata("version")
+	if err != nil || val != "1.0.1" {
+		t.Errorf("expected '1.0.1', got %q, err: %v", val, err)
+	}
+
+	// Delete
+	if err := db.DeleteMetadata("version"); err != nil {
+		t.Fatalf("DeleteMetadata failed: %v", err)
+	}
+	val, err = db.GetMetadata("version")
+	if err != nil || val != "" {
+		t.Errorf("expected empty string after delete, got %q, err: %v", val, err)
+	}
+}
