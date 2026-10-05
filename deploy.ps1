@@ -40,7 +40,7 @@ $Target = "$RobotUser@$RobotIP"
 
 # 2. Stop running bot and supervisor on robot
 Write-Host "[*] Stopping tgbot on $Target..." -ForegroundColor Yellow
-ssh -o ConnectTimeout=5 $Target "killall run.sh tgbot 2>/dev/null || true; rm -f /var/run/tgbot_run.pid"
+ssh -o ConnectTimeout=5 $Target "killall run.sh tgbot 2>/dev/null || true; sleep 1; killall -9 run.sh tgbot 2>/dev/null || true; rm -f /var/run/tgbot_run.pid /tmp/tgbot.alive; mv -f /data/tgbot/tgbot /data/tgbot/tgbot.old 2>/dev/null || true"
 
 # 3. Upload binary and supervisor script to robot
 Write-Host "[*] Uploading tgbot and run.sh to ${Target}:/data/tgbot/..." -ForegroundColor Cyan

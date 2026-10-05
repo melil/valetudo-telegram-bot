@@ -48,9 +48,10 @@ func NewService(
 
 func (s *Service) Start(ctx context.Context) {
 	var lastStatus string
-	var lastErrorFlag string
+	var lastFlag string
 	var lastCleanWater string
 	var lastDirtyWater string
+	var lastMidCleanDocked bool
 	firstRun := true
 
 	interval := s.cfg.Interval
@@ -85,9 +86,10 @@ func (s *Service) Start(ctx context.Context) {
 			}
 
 			currentStatus := ""
-			currentErrorFlag := "none"
+			currentFlag := "none"
 			currentCleanWater := "ok"
 			currentDirtyWater := "ok"
+			currentDockStatus := "idle"
 			currentBattery := 0
 
 			for _, attr := range attrs {
@@ -97,10 +99,14 @@ func (s *Service) Start(ctx context.Context) {
 						currentStatus = val
 					}
 					if attr.Flag != "" {
-						currentErrorFlag = attr.Flag
+						currentFlag = attr.Flag
 					}
 				case "BatteryStateAttribute":
 					currentBattery = attr.Level
+				case "DockStatusStateAttribute":
+					if val, ok := attr.Value.(string); ok {
+						currentDockStatus = val
+					}
 				case "DockComponentStateAttribute":
 					valStr, _ := attr.Value.(string)
 					if attr.Type == "water_tank_clean" {
@@ -112,7 +118,7 @@ func (s *Service) Start(ctx context.Context) {
 			}
 
 			if s.cfg.OnStatusUpdate != nil {
-				s.cfg.OnStatusUpdate(currentStatus, currentErrorFlag)
+				s.cfg.OnStatusUpdate(currentStatus, currentFlag)
 			}
 
 			// Автоматический запуск отслеживания сессии, если уборку включили вне визарда
@@ -120,17 +126,23 @@ func (s *Service) Start(ctx context.Context) {
 				s.sessionSvc.StartSession(nil, currentBattery)
 			}
 
-			// Сбор пиковых метрик пока идет уборка или возврат на базу
-			if s.sessionSvc.IsActive() && (currentStatus == "cleaning" || currentStatus == "moving" || currentStatus == "returning" || currentStatus == "paused") {
+			// Проверяем, находится ли робот на станции временно во время незавершенной уборки:
+			// - флаг resumable (стирка мопов между проходами/комнатами, смена прохода в vacuum_then_mop, дозарядка и т.д.)
+			// - док-станция в процессе очистки мопов (cleaning) или опустошения пылесборника (emptying)
+			isMidCleanDocked := currentStatus == "docked" && (currentFlag == "resumable" || currentDockStatus == "cleaning" || currentDockStatus == "emptying")
+
+			// Сбор пиковых метрик пока идет уборка, возврат на базу или промежуточная очистка на доке
+			if s.sessionSvc.IsActive() && (currentStatus == "cleaning" || currentStatus == "moving" || currentStatus == "returning" || currentStatus == "paused" || isMidCleanDocked) {
 				min, sec, areaM2 := s.val.GetCurrentSessionStats()
 				s.sessionSvc.UpdateStats(min, sec, areaM2)
 			}
 
 			if firstRun {
 				lastStatus = currentStatus
-				lastErrorFlag = currentErrorFlag
+				lastFlag = currentFlag
 				lastCleanWater = currentCleanWater
 				lastDirtyWater = currentDirtyWater
+				lastMidCleanDocked = isMidCleanDocked
 				firstRun = false
 				return
 			}
@@ -140,9 +152,9 @@ func (s *Service) Start(ctx context.Context) {
 				isDND = s.cfg.IsDNDActive()
 			}
 
-			if currentStatus == "error" && (lastStatus != "error" || currentErrorFlag != lastErrorFlag) {
+			if currentStatus == "error" && (lastStatus != "error" || currentFlag != lastFlag) {
 				for _, chatID := range s.authSvc.GetNotifyChatIDs("errors") {
-					msg := s.cfg.TranslateUser(chatID, "watcher.err_robot", currentStatus, currentErrorFlag)
+					msg := s.cfg.TranslateUser(chatID, "watcher.err_robot", currentStatus, currentFlag)
 					_, _ = s.tg.SendTextMessage(chatID, msg, isDND, nil)
 				}
 				if s.cfg.OnBroadcastDash != nil {
@@ -150,7 +162,10 @@ func (s *Service) Start(ctx context.Context) {
 				}
 			}
 
-			if (lastStatus == "cleaning" || lastStatus == "returning" || s.sessionSvc.IsActive()) && currentStatus == "docked" {
+			justDocked := (lastStatus == "cleaning" || lastStatus == "returning") && currentStatus == "docked" && !isMidCleanDocked
+			dockServiceFinished := lastMidCleanDocked && currentStatus == "docked" && !isMidCleanDocked && s.sessionSvc.IsActive()
+
+			if justDocked || dockServiceFinished {
 				report := s.sessionSvc.FinishSession(currentBattery, "ru")
 
 				mapReader, err := s.val.GetMapReader()
@@ -202,9 +217,10 @@ func (s *Service) Start(ctx context.Context) {
 			}
 
 			lastStatus = currentStatus
-			lastErrorFlag = currentErrorFlag
+			lastFlag = currentFlag
 			lastCleanWater = currentCleanWater
 			lastDirtyWater = currentDirtyWater
+			lastMidCleanDocked = isMidCleanDocked
 		}()
 	}
 }

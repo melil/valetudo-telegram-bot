@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"tgbot/internal/netutil"
 )
 
 type Client struct {
@@ -25,10 +27,8 @@ func NewClient(token, apiBase string, pollTimeoutSec int) *Client {
 	}
 	apiURL := fmt.Sprintf("%s/bot%s", strings.TrimRight(apiBase, "/"), token)
 	return &Client{
-		apiURL: apiURL,
-		httpClient: &http.Client{
-			Timeout: time.Duration(pollTimeoutSec+10) * time.Second,
-		},
+		apiURL:      apiURL,
+		httpClient:  netutil.NewHTTPClient(time.Duration(pollTimeoutSec+10) * time.Second),
 		pollTimeout: pollTimeoutSec,
 	}
 }

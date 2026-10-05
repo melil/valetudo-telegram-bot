@@ -3,11 +3,24 @@
 
 DIR="/data/tgbot"
 PIDFILE="/var/run/tgbot_run.pid"
+ALIVE_FILE="/tmp/tgbot.alive"
+WATCHDOG_TIMEOUT=240 # 4 minutes without heartbeat triggers watchdog restart
 LOGDIR="/tmp/log/custom"
 LOGFILE="$LOGDIR/tgbot.log"
 
 mkdir -p "$LOGDIR" "$DIR"
 cd "$DIR" || exit 1
+
+# Ensure reliable DNS fallback in system resolv.conf
+ensure_dns() {
+    _RESOLV="/tmp/root/etc/resolv.conf"
+    if [ -f "$_RESOLV" ]; then
+        if ! grep -q "8.8.8.8" "$_RESOLV" 2>/dev/null; then
+            echo "nameserver 8.8.8.8" >> "$_RESOLV"
+            log_msg "Added nameserver 8.8.8.8 to $_RESOLV"
+        fi
+    fi
+}
 
 # Single-instance guard
 if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
@@ -49,7 +62,7 @@ cleanup() {
         done
         kill -9 "$BOT_PID" 2>/dev/null
     fi
-    rm -f "$PIDFILE"
+    rm -f "$PIDFILE" "$ALIVE_FILE"
     exit 0
 }
 trap cleanup INT TERM HUP
@@ -79,12 +92,18 @@ if [ $_val_wait -ge 90 ]; then
     log_msg "WARNING: Valetudo did not respond within 90s, starting bot anyway..."
 fi
 
-# Supervisor restart loop
+# Supervisor restart loop with watchdog
 while true; do
+    ensure_dns
+
     # Rotate log if size exceeds 2 MB (2097152 bytes)
     if [ -f "$LOGFILE" ] && [ "$(wc -c < "$LOGFILE" 2>/dev/null || echo 0)" -gt 2097152 ]; then
         tail -n 2000 "$LOGFILE" > "$LOGFILE.tmp" && mv "$LOGFILE.tmp" "$LOGFILE"
     fi
+
+    # Initialize heartbeat file
+    rm -f "$ALIVE_FILE"
+    touch "$ALIVE_FILE"
 
     chmod +x "$DIR/tgbot" 2>/dev/null
     log_msg "Starting tgbot..."
@@ -92,9 +111,36 @@ while true; do
     BOT_PID=$!
     log_msg "tgbot running with PID $BOT_PID"
 
-    wait $BOT_PID
+    # Watchdog loop: monitors process health and heartbeat timestamp
+    while kill -0 "$BOT_PID" 2>/dev/null; do
+        sleep 15
+        ensure_dns
+
+        if [ -f "$ALIVE_FILE" ]; then
+            _LAST_ALIVE=$(stat -c %Y "$ALIVE_FILE" 2>/dev/null || echo 0)
+            _NOW=$(date +%s)
+            _DIFF=$((_NOW - _LAST_ALIVE))
+            if [ $_DIFF -gt $WATCHDOG_TIMEOUT ]; then
+                log_msg "WATCHDOG: tgbot (PID $BOT_PID) has been unresponsive for ${_DIFF}s (timeout ${WATCHDOG_TIMEOUT}s). Terminating..."
+                kill -15 "$BOT_PID" 2>/dev/null
+                _k=0
+                while [ $_k -lt 5 ] && kill -0 "$BOT_PID" 2>/dev/null; do
+                    sleep 1
+                    _k=$((_k + 1))
+                done
+                if kill -0 "$BOT_PID" 2>/dev/null; then
+                    log_msg "WATCHDOG: sending SIGKILL to PID $BOT_PID"
+                    kill -9 "$BOT_PID" 2>/dev/null
+                fi
+                break
+            fi
+        fi
+    done
+
+    wait $BOT_PID 2>/dev/null
     EXIT_CODE=$?
     log_msg "tgbot (PID $BOT_PID) exited with code $EXIT_CODE. Restarting in 3s..."
     BOT_PID=""
+    rm -f "$ALIVE_FILE"
     sleep 3
 done

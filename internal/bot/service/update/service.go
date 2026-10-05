@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"tgbot/internal/bot/domain"
 	"tgbot/internal/bot/service/auth"
 	"tgbot/internal/i18n"
+	"tgbot/internal/netutil"
 	"tgbot/internal/telegram"
 	"tgbot/internal/version"
 )
@@ -81,11 +81,8 @@ func NewService(
 	}
 
 	downloadTransport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           netutil.NewResilientDialer().DialContext,
 		ForceAttemptHTTP2:     false,
 		TLSNextProto:          make(map[string]func(string, *tls.Conn) http.RoundTripper),
 		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
@@ -116,7 +113,7 @@ func NewService(
 		db:             db,
 		tg:             tg,
 		authSvc:        authSvc,
-		apiClient:      &http.Client{Timeout: 30 * time.Second},
+		apiClient:      netutil.NewHTTPClient(30 * time.Second),
 		downloadClient: downloadClient,
 		getUserLang:    getUserLang,
 		exePathFunc:    os.Executable,

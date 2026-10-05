@@ -21,16 +21,20 @@ type CleaningReport struct {
 
 // CleaningSession tracks the state of an in-progress cleaning session.
 type CleaningSession struct {
-	Active         bool
-	StartTime      time.Time
-	StartBattery   int
-	StartTotalArea float64
-	StartTotalTime int
-	PeakMin        int
-	PeakSec        int
-	PeakAreaM2     float64
-	Rooms          []string
-	Mode           string
+	Active          bool
+	StartTime       time.Time
+	StartBattery    int
+	StartTotalArea  float64
+	StartTotalTime  int
+	PeakMin         int
+	PeakSec         int
+	PeakAreaM2      float64
+	AccumulatedSec  int
+	AccumulatedArea float64
+	CurrentPassSec  int
+	CurrentPassArea float64
+	Rooms           []string
+	Mode            string
 }
 
 // ConsumableDisplayInfo provides formatted presentation data for a consumable item.

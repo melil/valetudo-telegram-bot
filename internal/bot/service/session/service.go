@@ -89,14 +89,37 @@ func (s *Service) UpdateStats(min, sec int, areaM2 float64) {
 		return
 	}
 
-	curSec := min*60 + sec
-	peakSec := s.session.PeakMin*60 + s.session.PeakSec
-	if curSec > peakSec {
-		s.session.PeakMin = min
-		s.session.PeakSec = sec
+	rawSec := min*60 + sec
+	rawArea := areaM2
+
+	// Обнаружение нового прохода / сброса счетчиков роботом (например, при режиме "сначала сухая, затем влажная" или 2+ итерациях).
+	// Новый проход фиксируется, если предыдущий проход накопил прогресс (>= 120 сек или >= 1.0 м²),
+	// а новые сырые метрики сбросились обратно к началу (rawSec < CurrentPassSec-60 и rawSec <= 180 или rawArea <= 2.0 или rawSec < CurrentPassSec/2).
+	isNewPass := (s.session.CurrentPassSec >= 120 || s.session.CurrentPassArea >= 1.0) &&
+		(rawSec < s.session.CurrentPassSec-60) &&
+		(rawSec <= 180 || rawArea <= 2.0 || rawSec < s.session.CurrentPassSec/2)
+
+	if isNewPass {
+		s.session.AccumulatedSec += s.session.CurrentPassSec
+		s.session.AccumulatedArea += s.session.CurrentPassArea
+		s.session.CurrentPassSec = rawSec
+		s.session.CurrentPassArea = rawArea
+	} else {
+		if rawSec > s.session.CurrentPassSec {
+			s.session.CurrentPassSec = rawSec
+		}
+		if rawArea > s.session.CurrentPassArea {
+			s.session.CurrentPassArea = rawArea
+		}
 	}
-	if areaM2 > s.session.PeakAreaM2 {
-		s.session.PeakAreaM2 = areaM2
+
+	totalSec := s.session.AccumulatedSec + s.session.CurrentPassSec
+	totalArea := s.session.AccumulatedArea + s.session.CurrentPassArea
+
+	s.session.PeakMin = totalSec / 60
+	s.session.PeakSec = totalSec % 60
+	if totalArea > s.session.PeakAreaM2 {
+		s.session.PeakAreaM2 = totalArea
 	}
 }
 

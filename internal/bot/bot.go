@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"tgbot/internal/config"
 	"tgbot/internal/database"
 	"tgbot/internal/i18n"
+	"tgbot/internal/netutil"
 	"tgbot/internal/telegram"
 	"tgbot/internal/valetudo"
 )
@@ -568,6 +570,29 @@ func (b *Bot) Run(ctx context.Context) error {
 	// Запуск фоновой периодической проверки обновлений
 	go b.updateSvc.Start(ctx)
 
+	// Начальный heartbeat для супервизора
+	netutil.TouchAliveFile("")
+
+	// Фоновый тикер для обновления heartbeat при нормальной работе
+	heartbeatTicker := time.NewTicker(30 * time.Second)
+	defer heartbeatTicker.Stop()
+
+	var consecutiveErrors int
+	var firstErrorTime time.Time
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-heartbeatTicker.C:
+				if consecutiveErrors == 0 {
+					netutil.TouchAliveFile("")
+				}
+			}
+		}
+	}()
+
 	offset := 0
 	for {
 		select {
@@ -579,10 +604,28 @@ func (b *Bot) Run(ctx context.Context) error {
 
 		updates, err := b.tg.GetUpdates(offset)
 		if err != nil {
-			log.Printf("Ошибка poll-запроса: %v. Повтор через 3с...", err)
+			consecutiveErrors++
+			if consecutiveErrors == 1 {
+				firstErrorTime = time.Now()
+			}
+			duration := time.Since(firstErrorTime)
+			log.Printf("Ошибка poll-запроса: %v. Непрерывных ошибок: %d (длительность: %v). Повтор через 3с...", err, consecutiveErrors, duration.Round(time.Second))
+
+			// Если ошибки длятся более 5 минут непрерывно, завершаем работу для перезапуска супервизором
+			if duration > 5*time.Minute {
+				log.Printf("КРИТИЧЕСКАЯ ОШИБКА: связь с Telegram отсутствует более 5 минут (%d ошибок подряд). Завершение работы для перезапуска...", consecutiveErrors)
+				return fmt.Errorf("continuous poll failure for %v (%d errors): %w", duration, consecutiveErrors, err)
+			}
+
 			time.Sleep(3 * time.Second)
 			continue
 		}
+
+		if consecutiveErrors > 0 {
+			log.Printf("Связь с Telegram восстановлена после %d ошибок (перерыв %v).", consecutiveErrors, time.Since(firstErrorTime).Round(time.Second))
+			consecutiveErrors = 0
+		}
+		netutil.TouchAliveFile("")
 
 		for _, update := range updates {
 			offset = update.UpdateID + 1
