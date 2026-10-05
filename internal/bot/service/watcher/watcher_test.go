@@ -119,6 +119,12 @@ func (m *mockUserRepo) GetAllDashboardMsgIDs() (map[int64]int, error)        { r
 func (m *mockUserRepo) GetRecentAuditLogs(limit int) ([]database.AuditLog, error) {
 	return nil, nil
 }
+func (m *mockUserRepo) GetAuditLogsPaginated(offset, limit int) ([]database.AuditLog, int, error) {
+	return nil, 0, nil
+}
+func (m *mockUserRepo) GetAuditLogByID(id int64) (*database.AuditLog, error) {
+	return nil, nil
+}
 func (m *mockUserRepo) BootstrapAdmin(defaultAdminChatID int64, username string) error { return nil }
 func (m *mockUserRepo) GetMetadata(key string) (string, error)                         { return "", nil }
 func (m *mockUserRepo) SetMetadata(key, value string) error                            { return nil }

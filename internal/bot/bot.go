@@ -547,7 +547,7 @@ func (b *Bot) getUsersMenu(currentChatID int64) (string, *telegram.InlineKeyboar
 }
 
 func (b *Bot) getAuditLogMenu() (string, *telegram.InlineKeyboardMarkup) {
-	return delivery.GetAuditLogMenu(b.db, b.GetLang())
+	return delivery.GetAuditLogMenu(b.db, 1, 0, b.GetLang())
 }
 
 func (b *Bot) formatRemainingTime(remMin int) string {

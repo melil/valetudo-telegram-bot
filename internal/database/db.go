@@ -321,6 +321,61 @@ func (d *DB) GetRecentAuditLogs(limit int) ([]AuditLog, error) {
 	return logs, rows.Err()
 }
 
+// GetAuditLogsPaginated возвращает срез записей аудита с пагинацией и общее количество записей.
+func (d *DB) GetAuditLogsPaginated(offset, limit int) ([]AuditLog, int, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	var totalCount int
+	if err := d.db.QueryRow(`SELECT COUNT(*) FROM audit_logs`).Scan(&totalCount); err != nil {
+		return nil, 0, err
+	}
+
+	if offset >= totalCount {
+		return nil, totalCount, nil
+	}
+
+	rows, err := d.db.Query(`
+		SELECT id, chat_id, username, action, details, created_at 
+		FROM audit_logs 
+		ORDER BY id DESC 
+		LIMIT ? OFFSET ?`, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var logs []AuditLog
+	for rows.Next() {
+		var a AuditLog
+		if err := rows.Scan(&a.ID, &a.ChatID, &a.Username, &a.Action, &a.Details, &a.CreatedAt); err != nil {
+			return nil, 0, err
+		}
+		logs = append(logs, a)
+	}
+	return logs, totalCount, rows.Err()
+}
+
+// GetAuditLogByID возвращает запись аудита по её ID.
+func (d *DB) GetAuditLogByID(id int64) (*AuditLog, error) {
+	var a AuditLog
+	err := d.db.QueryRow(`
+		SELECT id, chat_id, username, action, details, created_at 
+		FROM audit_logs 
+		WHERE id = ?`, id).Scan(&a.ID, &a.ChatID, &a.Username, &a.Action, &a.Details, &a.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &a, nil
+}
+
 // GetAdmins возвращает список всех администраторов (для рассылки запросов доступа).
 func (d *DB) GetAdmins() ([]User, error) {
 	rows, err := d.db.Query(`

@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"fmt"
+	"html"
 	"strconv"
 	"strings"
 
@@ -560,7 +561,7 @@ func FormatActionTitle(action, details string, loc i18n.Locale) string {
 	}
 }
 
-func GetAuditLogMenu(db domain.UserRepository, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
+func GetAuditLogMenu(db domain.UserRepository, page int, expandedID int64, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
 	if db == nil {
 		text := "⚠️ База данных не подключена."
 		markup := &telegram.InlineKeyboardMarkup{
@@ -571,8 +572,14 @@ func GetAuditLogMenu(db domain.UserRepository, loc i18n.Locale) (string, *telegr
 		return text, markup
 	}
 
-	logs, err := db.GetRecentAuditLogs(10)
-	if err != nil || len(logs) == 0 {
+	const pageSize = 10
+	if page < 1 {
+		page = 1
+	}
+
+	offset := (page - 1) * pageSize
+	logs, totalCount, err := db.GetAuditLogsPaginated(offset, pageSize)
+	if err != nil || totalCount == 0 {
 		text := i18n.T(loc, "audit.empty")
 		markup := &telegram.InlineKeyboardMarkup{
 			InlineKeyboard: [][]telegram.InlineKeyboardButton{
@@ -582,21 +589,147 @@ func GetAuditLogMenu(db domain.UserRepository, loc i18n.Locale) (string, *telegr
 		return text, markup
 	}
 
-	text := i18n.T(loc, "audit.title") + "\n\n"
-	for _, l := range logs {
+	totalPages := (totalCount + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+		offset = (page - 1) * pageSize
+		logs, _, _ = db.GetAuditLogsPaginated(offset, pageSize)
+	}
+
+	pageInfo := fmt.Sprintf(i18n.T(loc, "audit.page_info"), page, totalPages)
+	text := fmt.Sprintf("%s (<b>%d</b>) • <i>%s</i>\n\n", i18n.T(loc, "audit.title"), totalCount, pageInfo)
+
+	var itemButtons []telegram.InlineKeyboardButton
+	var expandedCardButton *telegram.InlineKeyboardButton
+
+	for i, l := range logs {
+		itemIndex := offset + i + 1
 		userStr := "ID " + strconv.FormatInt(l.ChatID, 10)
 		if l.Username != "" {
 			userStr = "@" + l.Username
 		}
 		timeStr := l.CreatedAt.Local().Format("02.01 15:04")
-		text += fmt.Sprintf("• <code>%s</code> <b>%s</b>: %s\n", timeStr, userStr, FormatActionTitle(l.Action, l.Details, loc))
+		actionTitle := FormatActionTitle(l.Action, l.Details, loc)
+
+		if l.ID == expandedID {
+			timeFull := l.CreatedAt.Local().Format("02.01.2006 15:04:05")
+			detailsStr := l.Details
+			if detailsStr == "" {
+				detailsStr = "—"
+			}
+			text += fmt.Sprintf("<b>%d.</b> <code>%s</code> <b>%s</b>: %s\n", itemIndex, timeStr, userStr, actionTitle)
+			text += fmt.Sprintf("   ┌ 🆔 <b>ID:</b> #%d\n", l.ID)
+			text += fmt.Sprintf("   ├ ⏰ <b>Время:</b> <code>%s</code>\n", timeFull)
+			text += fmt.Sprintf("   ├ 👤 <b>Пользователь:</b> <code>%s</code> (ID %d)\n", userStr, l.ChatID)
+			text += fmt.Sprintf("   ├ 🏷 <b>Действие:</b> <code>%s</code>\n", html.EscapeString(l.Action))
+			text += fmt.Sprintf("   └ 📝 <b>Детали:</b> <code>%s</code>\n\n", html.EscapeString(detailsStr))
+
+			itemButtons = append(itemButtons, telegram.InlineKeyboardButton{
+				Text:         fmt.Sprintf("🔼 #%d", itemIndex),
+				CallbackData: fmt.Sprintf("audit:%d:0", page),
+			})
+
+			cardBtn := telegram.InlineKeyboardButton{
+				Text:         fmt.Sprintf("🔍 Карточка #%d", itemIndex),
+				CallbackData: fmt.Sprintf("audit_card:%d:%d", l.ID, page),
+			}
+			expandedCardButton = &cardBtn
+		} else {
+			text += fmt.Sprintf("<b>%d.</b> <code>%s</code> <b>%s</b>: %s\n", itemIndex, timeStr, userStr, actionTitle)
+			itemButtons = append(itemButtons, telegram.InlineKeyboardButton{
+				Text:         fmt.Sprintf("#%d", itemIndex),
+				CallbackData: fmt.Sprintf("audit:%d:%d", page, l.ID),
+			})
+		}
 	}
+
+	var keyboard [][]telegram.InlineKeyboardButton
+
+	// Ряды кнопок действий по 5 в ряд
+	for i := 0; i < len(itemButtons); i += 5 {
+		end := i + 5
+		if end > len(itemButtons) {
+			end = len(itemButtons)
+		}
+		keyboard = append(keyboard, itemButtons[i:end])
+	}
+
+	// Кнопка перехода к отдельной карточке для раскрытого элемента
+	if expandedCardButton != nil {
+		keyboard = append(keyboard, []telegram.InlineKeyboardButton{*expandedCardButton})
+	}
+
+	// Ряд пагинации
+	var navRow []telegram.InlineKeyboardButton
+	if page > 1 {
+		navRow = append(navRow, telegram.InlineKeyboardButton{
+			Text:         "◀️",
+			CallbackData: fmt.Sprintf("audit:%d:0", page-1),
+		})
+	}
+	navRow = append(navRow, telegram.InlineKeyboardButton{
+		Text:         pageInfo,
+		CallbackData: fmt.Sprintf("audit:%d:%d", page, expandedID),
+	})
+	if page < totalPages {
+		navRow = append(navRow, telegram.InlineKeyboardButton{
+			Text:         "▶️",
+			CallbackData: fmt.Sprintf("audit:%d:0", page+1),
+		})
+	}
+	keyboard = append(keyboard, navRow)
+
+	// Нижний ряд действий
+	keyboard = append(keyboard, []telegram.InlineKeyboardButton{
+		{Text: i18n.T(loc, "audit.btn_refresh"), CallbackData: fmt.Sprintf("audit:%d:%d", page, expandedID)},
+		{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+	})
+
+	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: keyboard}
+}
+
+func GetAuditLogCardMenu(db domain.UserRepository, id int64, page int, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
+	if db == nil {
+		return "⚠️ База данных не подключена.", &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: i18n.T(loc, "audit.btn_back_list"), CallbackData: fmt.Sprintf("audit:%d:0", page)}},
+			},
+		}
+	}
+
+	logEntry, err := db.GetAuditLogByID(id)
+	if err != nil || logEntry == nil {
+		return "⚠️ Запись не найдена.", &telegram.InlineKeyboardMarkup{
+			InlineKeyboard: [][]telegram.InlineKeyboardButton{
+				{{Text: i18n.T(loc, "audit.btn_back_list"), CallbackData: fmt.Sprintf("audit:%d:0", page)}},
+			},
+		}
+	}
+
+	userStr := "ID " + strconv.FormatInt(logEntry.ChatID, 10)
+	if logEntry.Username != "" {
+		userStr = "@" + logEntry.Username
+	}
+	timeFull := logEntry.CreatedAt.Local().Format("02.01.2006 15:04:05")
+	detailsStr := logEntry.Details
+	if detailsStr == "" {
+		detailsStr = "—"
+	}
+
+	text := fmt.Sprintf(i18n.T(loc, "audit.details_header"), logEntry.ID) + "\n\n"
+	text += fmt.Sprintf("⏰ <b>Время:</b> <code>%s</code>\n", timeFull)
+	text += fmt.Sprintf("👤 <b>Пользователь:</b> <code>%s</code> (<code>%d</code>)\n", userStr, logEntry.ChatID)
+	text += fmt.Sprintf("🎯 <b>Действие:</b> %s (<code>%s</code>)\n\n", FormatActionTitle(logEntry.Action, logEntry.Details, loc), logEntry.Action)
+	text += fmt.Sprintf("📝 <b>Подробности:</b>\n<code>%s</code>\n", html.EscapeString(detailsStr))
 
 	markup := &telegram.InlineKeyboardMarkup{
 		InlineKeyboard: [][]telegram.InlineKeyboardButton{
 			{
-				{Text: i18n.T(loc, "audit.btn_refresh"), CallbackData: "sub_audit"},
-				{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+				{Text: i18n.T(loc, "audit.btn_back_list"), CallbackData: fmt.Sprintf("audit:%d:%d", page, id)},
+				{Text: i18n.T(loc, "audit.btn_refresh"), CallbackData: fmt.Sprintf("audit_card:%d:%d", id, page)},
 			},
 		},
 	}

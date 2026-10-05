@@ -141,6 +141,32 @@ func TestDatabase_AuditLogRingBuffer(t *testing.T) {
 	if logs[0].Details != "event #105" {
 		t.Errorf("expected first log to be event #105, got %s", logs[0].Details)
 	}
+
+	// Проверяем пагинацию
+	page1, total, err := db.GetAuditLogsPaginated(0, 10)
+	if err != nil || len(page1) != 10 || total != 100 {
+		t.Fatalf("expected page1 10 items, total 100, got len=%d total=%d err=%v", len(page1), total, err)
+	}
+	if page1[0].Details != "event #105" {
+		t.Errorf("expected page1 first item event #105, got %s", page1[0].Details)
+	}
+
+	page2, _, err := db.GetAuditLogsPaginated(10, 10)
+	if err != nil || len(page2) != 10 {
+		t.Fatalf("expected page2 10 items, got len=%d err=%v", len(page2), err)
+	}
+	if page2[0].Details != "event #95" {
+		t.Errorf("expected page2 first item event #95, got %s", page2[0].Details)
+	}
+
+	// Проверяем получение по ID
+	item, err := db.GetAuditLogByID(page1[0].ID)
+	if err != nil || item == nil {
+		t.Fatalf("GetAuditLogByID failed: %v", err)
+	}
+	if item.Details != "event #105" {
+		t.Errorf("expected event #105 by ID, got %s", item.Details)
+	}
 }
 
 func TestDatabase_Metadata(t *testing.T) {

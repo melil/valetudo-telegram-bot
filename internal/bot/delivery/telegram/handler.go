@@ -217,6 +217,14 @@ func (h *Handler) HandleTextCommand(msg *telegram.Message) {
 		text, markup := GetUsersMenu(h.db, chatID, loc)
 		_ = h.facade.RenderDashboard(chatID, text, markup)
 
+	case cleanText == "/audit":
+		if !h.authSvc.IsUserAdmin(chatID) {
+			_ = h.facade.RenderDashboard(chatID, h.t(chatID, "auth.admin_only"), nil)
+			return
+		}
+		text, markup := GetAuditLogMenu(h.db, 1, 0, loc)
+		_ = h.facade.RenderDashboard(chatID, text, markup)
+
 	case cleanText == "/update" || cleanText == "/version":
 		if !h.authSvc.IsUserAdmin(chatID) {
 			_ = h.facade.RenderDashboard(chatID, h.t(chatID, "auth.admin_only"), nil)
@@ -593,37 +601,47 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 			_ = h.tg.AnswerCallbackQueryAlert(cb.ID, h.t(chatID, "auth.admin_only"), true)
 			return
 		}
-		if h.db == nil {
-			_ = h.facade.RenderDashboard(chatID, "⚠️ База данных не подключена.", nil)
+		text, markup := GetAuditLogMenu(h.db, 1, 0, loc)
+		_ = h.facade.RenderDashboard(chatID, text, markup)
+
+	case strings.HasPrefix(data, "audit:"):
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		if !h.authSvc.IsUserAdmin(chatID) {
+			_ = h.tg.AnswerCallbackQueryAlert(cb.ID, h.t(chatID, "auth.admin_only"), true)
 			return
 		}
-		logs, err := h.db.GetRecentAuditLogs(10)
-		if err != nil || len(logs) == 0 {
-			markup := &telegram.InlineKeyboardMarkup{
-				InlineKeyboard: [][]telegram.InlineKeyboardButton{
-					{{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
-				},
+		parts := strings.Split(strings.TrimPrefix(data, "audit:"), ":")
+		page := 1
+		var expID int64
+		if len(parts) >= 1 {
+			if p, err := strconv.Atoi(parts[0]); err == nil && p > 0 {
+				page = p
 			}
-			_ = h.facade.RenderDashboard(chatID, h.t(chatID, "audit.empty"), markup)
+		}
+		if len(parts) >= 2 {
+			expID, _ = strconv.ParseInt(parts[1], 10, 64)
+		}
+		text, markup := GetAuditLogMenu(h.db, page, expID, loc)
+		_ = h.facade.RenderDashboard(chatID, text, markup)
+
+	case strings.HasPrefix(data, "audit_card:"):
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		if !h.authSvc.IsUserAdmin(chatID) {
+			_ = h.tg.AnswerCallbackQueryAlert(cb.ID, h.t(chatID, "auth.admin_only"), true)
 			return
 		}
-		text := h.t(chatID, "audit.title") + "\n\n"
-		for _, l := range logs {
-			userStr := "ID " + strconv.FormatInt(l.ChatID, 10)
-			if l.Username != "" {
-				userStr = "@" + l.Username
+		parts := strings.Split(strings.TrimPrefix(data, "audit_card:"), ":")
+		var logID int64
+		page := 1
+		if len(parts) >= 1 {
+			logID, _ = strconv.ParseInt(parts[0], 10, 64)
+		}
+		if len(parts) >= 2 {
+			if p, err := strconv.Atoi(parts[1]); err == nil && p > 0 {
+				page = p
 			}
-			timeStr := l.CreatedAt.Local().Format("02.01 15:04")
-			text += fmt.Sprintf("• <code>%s</code> <b>%s</b>: %s\n", timeStr, userStr, FormatActionTitle(l.Action, l.Details, loc))
 		}
-		markup := &telegram.InlineKeyboardMarkup{
-			InlineKeyboard: [][]telegram.InlineKeyboardButton{
-				{
-					{Text: h.t(chatID, "audit.btn_refresh"), CallbackData: "sub_audit"},
-					{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"},
-				},
-			},
-		}
+		text, markup := GetAuditLogCardMenu(h.db, logID, page, loc)
 		_ = h.facade.RenderDashboard(chatID, text, markup)
 
 	case strings.HasPrefix(data, "user_del:"):

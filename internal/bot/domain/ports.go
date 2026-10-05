@@ -56,6 +56,8 @@ type UserRepository interface {
 	SetUserDashboardMsgID(chatID int64, msgID int) error
 	GetAllDashboardMsgIDs() (map[int64]int, error)
 	GetRecentAuditLogs(limit int) ([]database.AuditLog, error)
+	GetAuditLogsPaginated(offset, limit int) ([]database.AuditLog, int, error)
+	GetAuditLogByID(id int64) (*database.AuditLog, error)
 	BootstrapAdmin(defaultAdminChatID int64, username string) error
 	GetMetadata(key string) (string, error)
 	SetMetadata(key, value string) error
