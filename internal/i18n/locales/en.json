@@ -1,6 +1,7 @@
 {
   "main_menu": {
-    "start_cleaning": "🪄 Start Cleaning",
+    "start_cleaning": "🪄 Cleaning Wizard",
+    "quick_clean": "▶️ Quick Clean",
     "stop_cleaning": "🛑 Stop Cleaning",
     "robot": "🤖 Robot",
     "station": "🏠 Station",
@@ -325,5 +326,33 @@
     "error_check": "⚠️ Failed to check for updates:\n<code>%s</code>",
     "error_apply": "❌ Error installing update:\n<code>%s</code>",
     "no_changelog": "No changelog provided."
+  },
+  "help": {
+    "title": "📖 <b>Bot Commands Reference:</b>",
+    "section_cleaning": "<b>Cleaning Control:</b>",
+    "cmd_start": "• /start, /status — Main dashboard & status",
+    "cmd_help": "• /help — Show this help message",
+    "cmd_wizard": "• /wizard — Cleaning wizard (by rooms)",
+    "cmd_clean": "• /clean — Quick full cleaning",
+    "cmd_pause": "• /pause — Pause cleaning",
+    "cmd_resume": "• /resume — Resume cleaning",
+    "cmd_stop": "• /stop — Stop cleaning",
+    "cmd_home": "• /home — Return robot to dock",
+    "section_info": "<b>Sections & Info:</b>",
+    "cmd_robot": "• /robot — Robot control menu",
+    "cmd_station": "• /station — Dock station menu",
+    "cmd_rooms": "• /rooms — List detected rooms",
+    "cmd_map": "• /map — Send current map",
+    "cmd_telemetry": "• /telemetry, /stats — Robot telemetry",
+    "cmd_consumables": "• /consumables — Consumables status",
+    "cmd_settings": "• /settings — Robot settings",
+    "cmd_botsettings": "• /botsettings — Telegram bot settings",
+    "cmd_resources": "• /resources — System host resources",
+    "cmd_lang": "• /lang — Select interface language",
+    "cmd_locate": "• /locate — Sound beacon to locate robot",
+    "section_admin": "<b>Administrator Commands:</b>",
+    "cmd_users": "• /users — Manage authorized users",
+    "cmd_audit": "• /audit — Action audit log",
+    "cmd_update": "• /update, /version — Check & apply updates"
   }
 }

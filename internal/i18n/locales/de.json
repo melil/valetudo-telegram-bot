@@ -1,6 +1,7 @@
 {
   "main_menu": {
-    "start_cleaning": "🪄 Reinigung starten",
+    "start_cleaning": "🪄 Reinigungsassistent",
+    "quick_clean": "▶️ Schnellreinigung",
     "stop_cleaning": "🛑 Reinigung beenden",
     "robot": "🤖 Roboter",
     "station": "🏠 Station",
@@ -325,5 +326,33 @@
     "error_check": "⚠️ Aktualisierungsprüfung fehlgeschlagen:\n<code>%s</code>",
     "error_apply": "❌ Fehler bei der Installation des Updates:\n<code>%s</code>",
     "no_changelog": "Keine Änderungshinweise vorhanden."
+  },
+  "help": {
+    "title": "📖 <b>Befehlsübersicht:</b>",
+    "section_cleaning": "<b>Reinigungssteuerung:</b>",
+    "cmd_start": "• /start, /status — Haupt-Dashboard & Status",
+    "cmd_help": "• /help — Diese Hilfe anzeigen",
+    "cmd_wizard": "• /wizard — Reinigungsassistent (nach Räumen)",
+    "cmd_clean": "• /clean — Schnelle Komplettreinigung",
+    "cmd_pause": "• /pause — Reinigung pausieren",
+    "cmd_resume": "• /resume — Reinigung fortsetzen",
+    "cmd_stop": "• /stop — Reinigung stoppen",
+    "cmd_home": "• /home — Roboter zur Station senden",
+    "section_info": "<b>Bereiche & Info:</b>",
+    "cmd_robot": "• /robot — Roboter-Steuerungsmenü",
+    "cmd_station": "• /station — Dockstation-Menü",
+    "cmd_rooms": "• /rooms — Liste der Räume",
+    "cmd_map": "• /map — Aktuelle Karte senden",
+    "cmd_telemetry": "• /telemetry, /stats — Roboter-Telemetrie",
+    "cmd_consumables": "• /consumables — Verbrauchsmaterial-Status",
+    "cmd_settings": "• /settings — Robotereinstellungen",
+    "cmd_botsettings": "• /botsettings — Telegram-Bot-Einstellungen",
+    "cmd_resources": "• /resources — Host-Systemressourcen",
+    "cmd_lang": "• /lang — Sprache auswählen",
+    "cmd_locate": "• /locate — Signalton zum Auffinden",
+    "section_admin": "<b>Administrator-Befehle:</b>",
+    "cmd_users": "• /users — Benutzerverwaltung",
+    "cmd_audit": "• /audit — Aktionsprotokoll",
+    "cmd_update": "• /update, /version — Updates prüfen und installieren"
   }
 }

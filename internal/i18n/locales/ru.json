@@ -1,6 +1,7 @@
 {
   "main_menu": {
-    "start_cleaning": "🪄 Старт уборки",
+    "start_cleaning": "🪄 Мастер уборки",
+    "quick_clean": "▶️ Быстрая уборка",
     "stop_cleaning": "🛑 Закончить уборку",
     "robot": "🤖 Робот",
     "station": "🏠 Станция",
@@ -325,5 +326,33 @@
     "error_check": "⚠️ Не удалось проверить обновления:\n<code>%s</code>",
     "error_apply": "❌ Ошибка при установке обновления:\n<code>%s</code>",
     "no_changelog": "Описание изменений отсутствует."
+  },
+  "help": {
+    "title": "📖 <b>Справка по командам бота:</b>",
+    "section_cleaning": "<b>Управление уборкой:</b>",
+    "cmd_start": "• /start, /status — Главный дашборд и статус",
+    "cmd_help": "• /help — Показать эту справку",
+    "cmd_wizard": "• /wizard — Мастер уборки (по комнатам)",
+    "cmd_clean": "• /clean — Быстрая генеральная уборка",
+    "cmd_pause": "• /pause — Приостановить уборку",
+    "cmd_resume": "• /resume — Возобновить уборку",
+    "cmd_stop": "• /stop — Остановить уборку",
+    "cmd_home": "• /home — Отправить робота на базу",
+    "section_info": "<b>Разделы и информация:</b>",
+    "cmd_robot": "• /robot — Меню управления роботом",
+    "cmd_station": "• /station — Меню док-станции",
+    "cmd_rooms": "• /rooms — Список доступных комнат",
+    "cmd_map": "• /map — Отправить текущую карту",
+    "cmd_telemetry": "• /telemetry, /stats — Телеметрия робота",
+    "cmd_consumables": "• /consumables — Состояние расходников",
+    "cmd_settings": "• /settings — Настройки робота",
+    "cmd_botsettings": "• /botsettings — Настройки Telegram-бота",
+    "cmd_resources": "• /resources — Ресурсы системы и хоста",
+    "cmd_lang": "• /lang — Выбор языка интерфейса",
+    "cmd_locate": "• /locate — Звуковой сигнал для поиска",
+    "section_admin": "<b>Команды администратора:</b>",
+    "cmd_users": "• /users — Управление пользователями",
+    "cmd_audit": "• /audit — Журнал действий",
+    "cmd_update": "• /update, /version — Проверка и установка обновлений"
   }
 }

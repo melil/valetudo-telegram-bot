@@ -444,3 +444,40 @@ func BuildTelemetryReport(
 		i18n.T(loc, "telemetry.sec_overall"),
 	)
 }
+
+func BuildHelpText(isAdmin bool, loc i18n.Locale) string {
+	var sb strings.Builder
+	sb.WriteString(i18n.T(loc, "help.title") + "\n\n")
+
+	sb.WriteString(i18n.T(loc, "help.section_cleaning") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_start") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_help") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_wizard") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_clean") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_pause") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_resume") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_stop") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_home") + "\n\n")
+
+	sb.WriteString(i18n.T(loc, "help.section_info") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_robot") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_station") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_rooms") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_map") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_telemetry") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_consumables") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_settings") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_botsettings") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_resources") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_lang") + "\n")
+	sb.WriteString(i18n.T(loc, "help.cmd_locate") + "\n")
+
+	if isAdmin {
+		sb.WriteString("\n" + i18n.T(loc, "help.section_admin") + "\n")
+		sb.WriteString(i18n.T(loc, "help.cmd_users") + "\n")
+		sb.WriteString(i18n.T(loc, "help.cmd_audit") + "\n")
+		sb.WriteString(i18n.T(loc, "help.cmd_update") + "\n")
+	}
+
+	return sb.String()
+}

@@ -3,7 +3,7 @@
 #  🤖 Valetudo Telegram Bot — Интерактивный онлайн-установщик (Installer)
 #  Использование:
 #    sh -c "$(curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
-#    curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh && sh /tmp/install.sh 1.0.11
+#    curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh && sh /tmp/install.sh 1.0.13
 # ==============================================================================
 
 set -e

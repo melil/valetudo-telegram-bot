@@ -35,9 +35,9 @@ func TestMainMenuMapping_Docked(t *testing.T) {
 		t.Fatalf("expected 3 rows in docked main menu, got %d", len(markup.Keyboard))
 	}
 
-	// Row 0: Only Start Cleaning (robot is already on dock, no pause/stop/home needed)
-	if len(markup.Keyboard[0]) != 1 || markup.Keyboard[0][0] != b.t("main_menu.start_cleaning") {
-		t.Errorf("expected row 0 to contain only start_cleaning, got %+v", markup.Keyboard[0])
+	// Row 0: Start Cleaning (wizard) and Quick Clean
+	if len(markup.Keyboard[0]) != 2 || markup.Keyboard[0][0] != b.t("main_menu.start_cleaning") || markup.Keyboard[0][1] != b.t("main_menu.quick_clean") {
+		t.Errorf("expected row 0 to contain start_cleaning and quick_clean, got %+v", markup.Keyboard[0])
 	}
 	// Row 1: Robot, Station
 	if len(markup.Keyboard[1]) != 2 || markup.Keyboard[1][1] != b.t("main_menu.station") {
@@ -131,9 +131,9 @@ func TestMainMenuMapping_MinimalVacuum(t *testing.T) {
 		t.Fatalf("expected 2 rows in minimal main menu, got %d", len(markup.Keyboard))
 	}
 
-	// Row 0: Full Clean (replacing Start Cleaning)
-	if markup.Keyboard[0][0] != b.t("main_menu.full_clean") {
-		t.Errorf("expected start button to be replaced with full_clean, got %q", markup.Keyboard[0][0])
+	// Row 0: Quick Clean (replacing Start Cleaning)
+	if markup.Keyboard[0][0] != b.t("main_menu.quick_clean") {
+		t.Errorf("expected start button to be replaced with quick_clean, got %q", markup.Keyboard[0][0])
 	}
 
 	// Row 1: Robot only (Station is hidden)
@@ -260,3 +260,41 @@ func TestUnsupportedTextCommands(t *testing.T) {
 		t.Errorf("expected not_supported message for /wizard, got %q", sentText)
 	}
 }
+
+func TestHelpCommand(t *testing.T) {
+	var sentText string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "editMessageText") {
+			var payload telegram.EditMessagePayload
+			_ = json.NewDecoder(r.Body).Decode(&payload)
+			sentText = payload.Text
+			w.Write([]byte(`{"ok":true}`))
+			return
+		}
+		var payload telegram.SendMessagePayload
+		_ = json.NewDecoder(r.Body).Decode(&payload)
+		sentText = payload.Text
+		w.Write([]byte(`{"ok":true,"result":{"message_id":1}}`))
+	}))
+	defer ts.Close()
+
+	cfg := &config.Config{
+		AllowedChatID: 12345,
+		DefaultLang:   "ru",
+	}
+	tg := telegram.NewClient("fake", ts.URL, 10)
+	val := valetudo.NewClient("http://fake", time.Second)
+	b := New(cfg, tg, val)
+
+	msg := &telegram.Message{Text: "/help"}
+	msg.Chat.ID = 12345
+	b.handleTextCommand(msg)
+	if !strings.Contains(sentText, "Справка по командам бота") {
+		t.Errorf("expected help message to contain title, got: %s", sentText)
+	}
+	if !strings.Contains(sentText, "/wizard") || !strings.Contains(sentText, "/clean") {
+		t.Errorf("expected help message to contain wizard and clean commands, got: %s", sentText)
+	}
+}
+

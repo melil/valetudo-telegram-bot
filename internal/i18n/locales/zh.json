@@ -1,6 +1,7 @@
 {
   "main_menu": {
-    "start_cleaning": "🪄 开始清扫",
+    "start_cleaning": "🪄 清扫向导",
+    "quick_clean": "▶️ 快速清扫",
     "stop_cleaning": "🛑 停止清扫",
     "robot": "🤖 机器人",
     "station": "🏠 基站",
@@ -325,5 +326,33 @@
     "error_check": "⚠️ 检查更新失败：\n<code>%s</code>",
     "error_apply": "❌ 安装更新时出错：\n<code>%s</code>",
     "no_changelog": "无更新说明。"
+  },
+  "help": {
+    "title": "📖 <b>命令帮助列表：</b>",
+    "section_cleaning": "<b>清扫控制：</b>",
+    "cmd_start": "• /start, /status — 打开主面板与状态",
+    "cmd_help": "• /help — 查看此帮助信息",
+    "cmd_wizard": "• /wizard — 启动选区清扫向导",
+    "cmd_clean": "• /clean — 快速启动全屋清扫",
+    "cmd_pause": "• /pause — 暂停清扫",
+    "cmd_resume": "• /resume — 继续清扫",
+    "cmd_stop": "• /stop — 停止清扫",
+    "cmd_home": "• /home — 召唤机器人回基站",
+    "section_info": "<b>功能与信息：</b>",
+    "cmd_robot": "• /robot — 扫地机控制菜单",
+    "cmd_station": "• /station — 基站控制菜单",
+    "cmd_rooms": "• /rooms — 查看房间列表",
+    "cmd_map": "• /map — 发送当前地图图片",
+    "cmd_telemetry": "• /telemetry, /stats — 扫地机传感器状态",
+    "cmd_consumables": "• /consumables — 耗材健康状态",
+    "cmd_settings": "• /settings — 扫地机参数设置",
+    "cmd_botsettings": "• /botsettings — Telegram Bot 系统设置",
+    "cmd_resources": "• /resources — 服务器资源与运行时间",
+    "cmd_lang": "• /lang — 切换界面语言",
+    "cmd_locate": "• /locate — 播放提示音寻机",
+    "section_admin": "<b>管理员专属命令：</b>",
+    "cmd_users": "• /users — 用户访问权限管理",
+    "cmd_audit": "• /audit — 用户操作审计日志",
+    "cmd_update": "• /update, /version — 检查与在线升级"
   }
 }

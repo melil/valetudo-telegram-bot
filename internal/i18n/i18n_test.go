@@ -45,17 +45,26 @@ func TestTranslationFormatting(t *testing.T) {
 	deStart := T(LocaleDE, "main_menu.start_cleaning")
 	zhStart := T(LocaleZH, "main_menu.start_cleaning")
 
-	if ruStart != "🪄 Старт уборки" {
-		t.Errorf("expected '🪄 Старт уборки', got '%s'", ruStart)
+	if ruStart != "🪄 Мастер уборки" {
+		t.Errorf("expected '🪄 Мастер уборки', got '%s'", ruStart)
 	}
-	if enStart != "🪄 Start Cleaning" {
-		t.Errorf("expected '🪄 Start Cleaning', got '%s'", enStart)
+	if enStart != "🪄 Cleaning Wizard" {
+		t.Errorf("expected '🪄 Cleaning Wizard', got '%s'", enStart)
 	}
-	if deStart != "🪄 Reinigung starten" {
-		t.Errorf("expected '🪄 Reinigung starten', got '%s'", deStart)
+	if deStart != "🪄 Reinigungsassistent" {
+		t.Errorf("expected '🪄 Reinigungsassistent', got '%s'", deStart)
 	}
-	if zhStart != "🪄 开始清扫" {
-		t.Errorf("expected '🪄 开始清扫', got '%s'", zhStart)
+	if zhStart != "🪄 清扫向导" {
+		t.Errorf("expected '🪄 清扫向导', got '%s'", zhStart)
+	}
+
+	ruQuick := T(LocaleRU, "main_menu.quick_clean")
+	enQuick := T(LocaleEN, "main_menu.quick_clean")
+	if ruQuick != "▶️ Быстрая уборка" {
+		t.Errorf("expected '▶️ Быстрая уборка', got '%s'", ruQuick)
+	}
+	if enQuick != "▶️ Quick Clean" {
+		t.Errorf("expected '▶️ Quick Clean', got '%s'", enQuick)
 	}
 
 	// Test formatted string
@@ -89,10 +98,12 @@ func TestMatches(t *testing.T) {
 		key  string
 		want bool
 	}{
-		{"🪄 Старт уборки", "main_menu.start_cleaning", true},
-		{"🪄 Start Cleaning", "main_menu.start_cleaning", true},
-		{"🪄 Reinigung starten", "main_menu.start_cleaning", true},
-		{"🪄 开始清扫", "main_menu.start_cleaning", true},
+		{"🪄 Мастер уборки", "main_menu.start_cleaning", true},
+		{"🪄 Cleaning Wizard", "main_menu.start_cleaning", true},
+		{"🪄 Reinigungsassistent", "main_menu.start_cleaning", true},
+		{"🪄 清扫向导", "main_menu.start_cleaning", true},
+		{"▶️ Быстрая уборка", "main_menu.quick_clean", true},
+		{"▶️ Quick Clean", "main_menu.quick_clean", true},
 		{"Something Else", "main_menu.start_cleaning", false},
 		{"", "main_menu.start_cleaning", false},
 	}

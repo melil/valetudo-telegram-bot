@@ -221,3 +221,43 @@ func TestRobotAndSettingsMenusHierarchy(t *testing.T) {
 		t.Errorf("expected menu_robot back button in bot settings")
 	}
 }
+
+func TestMainDashboard_QuickCleanAndWizard(t *testing.T) {
+	caps := valetudo.NewCapabilitySet([]string{
+		string(valetudo.CapBasicControl),
+		string(valetudo.CapMapSegmentation),
+	})
+
+	_, markup := GetMainDashboard(caps, "docked", "none", nil, nil, i18n.LocaleRU)
+	if len(markup.InlineKeyboard) < 1 {
+		t.Fatalf("expected rows in dashboard markup")
+	}
+
+	// First row should have both wizard and quick clean
+	row0 := markup.InlineKeyboard[0]
+	if len(row0) != 2 {
+		t.Fatalf("expected 2 buttons in row 0, got %d", len(row0))
+	}
+	if row0[0].CallbackData != "wiz_start" || row0[0].Text != i18n.T(i18n.LocaleRU, "main_menu.start_cleaning") {
+		t.Errorf("expected wiz_start button in row 0, got %+v", row0[0])
+	}
+	if row0[1].CallbackData != "cmd_start" || row0[1].Text != i18n.T(i18n.LocaleRU, "main_menu.quick_clean") {
+		t.Errorf("expected cmd_start button in row 0, got %+v", row0[1])
+	}
+}
+
+func TestBuildHelpText(t *testing.T) {
+	userHelp := BuildHelpText(false, i18n.LocaleRU)
+	if !strings.Contains(userHelp, "/help") || !strings.Contains(userHelp, "/wizard") || !strings.Contains(userHelp, "/clean") {
+		t.Errorf("expected user help to contain basic commands, got:\n%s", userHelp)
+	}
+	if strings.Contains(userHelp, "/users") || strings.Contains(userHelp, "/audit") || strings.Contains(userHelp, "/update") {
+		t.Errorf("non-admin help should not contain admin commands, got:\n%s", userHelp)
+	}
+
+	adminHelp := BuildHelpText(true, i18n.LocaleRU)
+	if !strings.Contains(adminHelp, "/users") || !strings.Contains(adminHelp, "/audit") || !strings.Contains(adminHelp, "/update") {
+		t.Errorf("admin help should contain admin commands, got:\n%s", adminHelp)
+	}
+}
+

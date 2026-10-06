@@ -256,7 +256,13 @@ func (h *Handler) HandleTextCommand(msg *telegram.Message) {
 		}
 		h.sendRoomsMenu(chatID)
 
-	case cleanText == "/clean" || i18n.Matches(cleanText, "main_menu.full_clean") || i18n.Matches(cleanText, "robot_menu.btn_start"):
+	case cleanText == "/help":
+		h.sendHelpMenu(chatID)
+
+	case cleanText == "/consumables":
+		h.sendConsumablesMenu(chatID)
+
+	case cleanText == "/clean" || i18n.Matches(cleanText, "main_menu.quick_clean") || i18n.Matches(cleanText, "main_menu.full_clean") || i18n.Matches(cleanText, "robot_menu.btn_start"):
 		if !caps.Has(valetudo.CapBasicControl) {
 			h.showNotSupported(chatID)
 			return
@@ -339,6 +345,26 @@ func (h *Handler) sendRoomsMenu(chatID int64) {
 	loc := h.facade.GetUserLang(chatID)
 	rooms, err := h.cleaningSvc.GetRooms(loc)
 	text, markup := GetRoomsMenu(rooms, err, loc)
+	_ = h.facade.RenderDashboard(chatID, text, markup)
+}
+
+func (h *Handler) sendHelpMenu(chatID int64) {
+	loc := h.facade.GetUserLang(chatID)
+	isAdmin := h.authSvc.IsUserAdmin(chatID)
+	text := BuildHelpText(isAdmin, loc)
+	markup := &telegram.InlineKeyboardMarkup{
+		InlineKeyboard: [][]telegram.InlineKeyboardButton{
+			{{Text: h.t(chatID, "main_menu.btn_back_main"), CallbackData: "menu_main"}},
+		},
+	}
+	_ = h.facade.RenderDashboard(chatID, text, markup)
+}
+
+func (h *Handler) sendConsumablesMenu(chatID int64) {
+	caps := h.facade.GetCaps()
+	loc := h.facade.GetUserLang(chatID)
+	displays, err := h.consumablesSvc.GetConsumablesDisplay(loc)
+	text, markup := GetConsumablesMenu(caps, displays, err, loc)
 	_ = h.facade.RenderDashboard(chatID, text, markup)
 }
 
@@ -532,6 +558,10 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 	case data == "menu_rooms":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
 		h.sendRoomsMenu(chatID)
+
+	case data == "menu_help":
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		h.sendHelpMenu(chatID)
 
 	case data == "menu_robot_settings":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
@@ -792,9 +822,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 
 	case data == "cmd_consumables":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		displays, err := h.consumablesSvc.GetConsumablesDisplay(loc)
-		text, markup := GetConsumablesMenu(caps, displays, err, loc)
-		_ = h.facade.RenderDashboard(chatID, text, markup)
+		h.sendConsumablesMenu(chatID)
 
 	case strings.HasPrefix(data, "reset_cons:"):
 		parts := strings.Split(strings.TrimPrefix(data, "reset_cons:"), ":")
@@ -806,9 +834,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 		} else {
 			_ = h.tg.AnswerCallbackQuery(cb.ID)
 		}
-		displays, err := h.consumablesSvc.GetConsumablesDisplay(loc)
-		text, markup := GetConsumablesMenu(caps, displays, err, loc)
-		_ = h.facade.RenderDashboard(chatID, text, markup)
+		h.sendConsumablesMenu(chatID)
 
 	case data == "cmd_resources":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)

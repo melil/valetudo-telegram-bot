@@ -27,9 +27,9 @@ func GetMainMenuMarkup(caps *valetudo.CapabilitySet, status, flag string, loc i1
 			cleanRow = append(cleanRow, i18n.T(loc, "main_menu.resume_cleaning"), i18n.T(loc, "main_menu.stop_robot"), i18n.T(loc, "main_menu.go_home"))
 		default: // "docked", "idle", "error", etc.
 			if caps.Has(valetudo.CapMapSegmentation) {
-				cleanRow = append(cleanRow, i18n.T(loc, "main_menu.start_cleaning"))
+				cleanRow = append(cleanRow, i18n.T(loc, "main_menu.start_cleaning"), i18n.T(loc, "main_menu.quick_clean"))
 			} else {
-				cleanRow = append(cleanRow, i18n.T(loc, "main_menu.full_clean"))
+				cleanRow = append(cleanRow, i18n.T(loc, "main_menu.quick_clean"))
 			}
 		}
 	}
@@ -122,23 +122,28 @@ func GetMainDashboard(
 				{Text: i18n.T(loc, "main_menu.resume_cleaning"), CallbackData: "cmd_resume"},
 			})
 		default: // "docked", "idle", "error", etc.
-			var defaultRow []telegram.InlineKeyboardButton
+			var cleanRow []telegram.InlineKeyboardButton
 			if caps.Has(valetudo.CapMapSegmentation) {
-				defaultRow = append(defaultRow, telegram.InlineKeyboardButton{
-					Text: i18n.T(loc, "main_menu.start_cleaning"), CallbackData: "wiz_start",
-				})
+				cleanRow = append(cleanRow,
+					telegram.InlineKeyboardButton{
+						Text: i18n.T(loc, "main_menu.start_cleaning"), CallbackData: "wiz_start",
+					},
+					telegram.InlineKeyboardButton{
+						Text: i18n.T(loc, "main_menu.quick_clean"), CallbackData: "cmd_start",
+					},
+				)
 			} else {
-				defaultRow = append(defaultRow, telegram.InlineKeyboardButton{
-					Text: i18n.T(loc, "main_menu.full_clean"), CallbackData: "cmd_start",
+				cleanRow = append(cleanRow, telegram.InlineKeyboardButton{
+					Text: i18n.T(loc, "main_menu.quick_clean"), CallbackData: "cmd_start",
 				})
+			}
+			if len(cleanRow) > 0 {
+				rows = append(rows, cleanRow)
 			}
 			if status != "docked" {
-				defaultRow = append(defaultRow, telegram.InlineKeyboardButton{
-					Text: i18n.T(loc, "main_menu.go_home"), CallbackData: "cmd_home",
+				rows = append(rows, []telegram.InlineKeyboardButton{
+					{Text: i18n.T(loc, "main_menu.go_home"), CallbackData: "cmd_home"},
 				})
-			}
-			if len(defaultRow) > 0 {
-				rows = append(rows, defaultRow)
 			}
 			if lastReport != nil {
 				rows = append(rows, []telegram.InlineKeyboardButton{
