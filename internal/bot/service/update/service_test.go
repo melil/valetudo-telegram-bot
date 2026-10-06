@@ -91,6 +91,12 @@ func (m *mockMessenger) DeleteMessage(chatID int64, messageID int) error { retur
 func (m *mockMessenger) SendPhoto(chatID int64, photo io.Reader, caption string, disableNotification bool) error {
 	return nil
 }
+func (m *mockMessenger) SendPhotoWithMarkup(chatID int64, photo io.Reader, caption string, disableNotification bool, markup *telegram.InlineKeyboardMarkup) (int, error) {
+	return 1, nil
+}
+func (m *mockMessenger) EditMessageMedia(chatID int64, messageID int, photo io.Reader, caption string, markup *telegram.InlineKeyboardMarkup) error {
+	return nil
+}
 func (m *mockMessenger) AnswerCallbackQuery(callbackQueryID string) error { return nil }
 func (m *mockMessenger) AnswerCallbackQueryAlert(callbackQueryID string, text string, showAlert bool) error {
 	return nil

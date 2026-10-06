@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ type BotFacade interface {
 	GetUserLang(chatID int64) i18n.Locale
 	SetUserLang(chatID int64, loc i18n.Locale)
 	RenderDashboard(chatID int64, text string, markup *telegram.InlineKeyboardMarkup) error
+	RenderDashboardWithPhoto(chatID int64, photo io.Reader, caption string, markup *telegram.InlineKeyboardMarkup) error
 	GetDashboardMsgID(chatID ...int64) int
 	ResetDashboard(chatID int64)
 	IsDNDActive() bool
@@ -93,6 +95,13 @@ func (h *Handler) SendMainDashboard(chatID int64) {
 	loc := h.facade.GetUserLang(chatID)
 
 	text, markup := GetMainDashboard(h.facade.GetCaps(), status, flag, lastReport, h.val, loc)
+	if h.val != nil {
+		if mapReader, err := h.val.GetMapReader(); err == nil {
+			defer mapReader.Close()
+			_ = h.facade.RenderDashboardWithPhoto(chatID, mapReader, text, markup)
+			return
+		}
+	}
 	_ = h.facade.RenderDashboard(chatID, text, markup)
 }
 
@@ -346,6 +355,13 @@ func (h *Handler) sendRoomsMenu(chatID int64) {
 	loc := h.facade.GetUserLang(chatID)
 	rooms, err := h.cleaningSvc.GetRooms(loc)
 	text, markup := GetRoomsMenu(rooms, err, loc)
+	if h.val != nil {
+		if mapReader, mapErr := h.val.GetMapReader(); mapErr == nil {
+			defer mapReader.Close()
+			_ = h.facade.RenderDashboardWithPhoto(chatID, mapReader, text, markup)
+			return
+		}
+	}
 	_ = h.facade.RenderDashboard(chatID, text, markup)
 }
 

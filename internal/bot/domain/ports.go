@@ -42,6 +42,8 @@ type Messenger interface {
 	EditMessage(chatID int64, messageID int, text string, markup *telegram.InlineKeyboardMarkup) error
 	DeleteMessage(chatID int64, messageID int) error
 	SendPhoto(chatID int64, photo io.Reader, caption string, disableNotification bool) error
+	SendPhotoWithMarkup(chatID int64, photo io.Reader, caption string, disableNotification bool, markup *telegram.InlineKeyboardMarkup) (int, error)
+	EditMessageMedia(chatID int64, messageID int, photo io.Reader, caption string, markup *telegram.InlineKeyboardMarkup) error
 	AnswerCallbackQuery(callbackQueryID string) error
 	AnswerCallbackQueryAlert(callbackQueryID string, text string, showAlert bool) error
 }

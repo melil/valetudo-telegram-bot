@@ -175,6 +175,15 @@ func (c *Client) AnswerCallbackQueryAlert(callbackQueryID string, text string, s
 }
 
 func (c *Client) SendPhoto(chatID int64, photoData io.Reader, caption string, disableNotification bool) error {
+	_, err := c.SendPhotoWithMarkup(chatID, photoData, caption, disableNotification, nil)
+	return err
+}
+
+func (c *Client) SendPhotoWithMarkup(chatID int64, photoData io.Reader, caption string, disableNotification bool, markup *InlineKeyboardMarkup) (int, error) {
+	if len([]rune(caption)) > 1024 {
+		caption = string([]rune(caption)[:1021]) + "..."
+	}
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	_ = writer.WriteField("chat_id", strconv.FormatInt(chatID, 10))
@@ -182,6 +191,80 @@ func (c *Client) SendPhoto(chatID int64, photoData io.Reader, caption string, di
 	_ = writer.WriteField("parse_mode", "HTML")
 	if disableNotification {
 		_ = writer.WriteField("disable_notification", "true")
+	}
+	if markup != nil {
+		markupBytes, err := json.Marshal(markup)
+		if err == nil {
+			_ = writer.WriteField("reply_markup", string(markupBytes))
+		}
+	}
+
+	part, err := writer.CreateFormFile("photo", "map.png")
+	if err != nil {
+		return 0, err
+	}
+	if _, err := io.Copy(part, photoData); err != nil {
+		return 0, err
+	}
+	if err := writer.Close(); err != nil {
+		return 0, err
+	}
+
+	reqPost, err := http.NewRequest("POST", c.apiURL+"/sendPhoto", body)
+	if err != nil {
+		return 0, err
+	}
+	reqPost.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := c.httpClient.Do(reqPost)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description"`
+		Result      struct {
+			MessageID int `json:"message_id"`
+		} `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return 0, err
+	}
+	if !res.OK {
+		return 0, fmt.Errorf("telegram sendPhoto error: %s", res.Description)
+	}
+	return res.Result.MessageID, nil
+}
+
+func (c *Client) EditMessageMedia(chatID int64, msgID int, photoData io.Reader, caption string, markup *InlineKeyboardMarkup) error {
+	if len([]rune(caption)) > 1024 {
+		caption = string([]rune(caption)[:1021]) + "..."
+	}
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	_ = writer.WriteField("chat_id", strconv.FormatInt(chatID, 10))
+	_ = writer.WriteField("message_id", strconv.Itoa(msgID))
+
+	mediaObj := map[string]string{
+		"type":       "photo",
+		"media":      "attach://photo",
+		"caption":    caption,
+		"parse_mode": "HTML",
+	}
+	mediaBytes, err := json.Marshal(mediaObj)
+	if err != nil {
+		return err
+	}
+	_ = writer.WriteField("media", string(mediaBytes))
+
+	if markup != nil {
+		markupBytes, err := json.Marshal(markup)
+		if err == nil {
+			_ = writer.WriteField("reply_markup", string(markupBytes))
+		}
 	}
 
 	part, err := writer.CreateFormFile("photo", "map.png")
@@ -195,7 +278,7 @@ func (c *Client) SendPhoto(chatID int64, photoData io.Reader, caption string, di
 		return err
 	}
 
-	reqPost, err := http.NewRequest("POST", c.apiURL+"/sendPhoto", body)
+	reqPost, err := http.NewRequest("POST", c.apiURL+"/editMessageMedia", body)
 	if err != nil {
 		return err
 	}
@@ -212,7 +295,11 @@ func (c *Client) SendPhoto(chatID int64, photoData io.Reader, caption string, di
 		return err
 	}
 	if !res.OK {
-		return fmt.Errorf("telegram sendPhoto error: %s", res.Description)
+		if strings.Contains(res.Description, "message is not modified") {
+			return nil
+		}
+		return fmt.Errorf("telegram editMessageMedia error: %s", res.Description)
 	}
 	return nil
 }
+

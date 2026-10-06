@@ -1,8 +1,10 @@
 package bot
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"sync"
 	"time"
@@ -331,6 +333,10 @@ func (b *Bot) RenderDashboard(chatID int64, text string, markup *telegram.Inline
 	return b.renderDashboardForChat(chatID, text, markup)
 }
 
+func (b *Bot) RenderDashboardWithPhoto(chatID int64, photo io.Reader, caption string, markup *telegram.InlineKeyboardMarkup) error {
+	return b.renderDashboardPhotoForChat(chatID, photo, caption, markup)
+}
+
 func (b *Bot) renderDashboard(text string, markup *telegram.InlineKeyboardMarkup) error {
 	return b.renderDashboardForChat(b.GetActiveChatID(), text, markup)
 }
@@ -353,6 +359,7 @@ func (b *Bot) renderDashboardForChat(chatID int64, text string, markup *telegram
 			return nil
 		}
 		log.Printf("renderDashboard: не удалось обновить сообщение %d в чате %d (%v), создаю новое...", msgID, chatID, err)
+		_ = b.tg.DeleteMessage(chatID, msgID)
 	}
 
 	newID, err := b.tg.SendPayload(telegram.SendMessagePayload{
@@ -362,6 +369,48 @@ func (b *Bot) renderDashboardForChat(chatID int64, text string, markup *telegram
 		ReplyMarkup:         markup,
 		DisableNotification: b.cfg.IsDNDActive(),
 	})
+	if err == nil && newID != 0 {
+		b.dashMu.Lock()
+		b.dashboards[chatID] = newID
+		if chatID == b.cfg.AllowedChatID {
+			b.dashboardMsgID = newID
+		}
+		b.dashMu.Unlock()
+
+		if b.db != nil && chatID != 0 {
+			_ = b.db.SetUserDashboardMsgID(chatID, newID)
+		}
+	}
+	return err
+}
+
+func (b *Bot) renderDashboardPhotoForChat(chatID int64, photoData io.Reader, caption string, markup *telegram.InlineKeyboardMarkup) error {
+	if chatID == 0 {
+		chatID = b.cfg.AllowedChatID
+	}
+
+	photoBytes, err := io.ReadAll(photoData)
+	if err != nil {
+		return b.renderDashboardForChat(chatID, caption, markup)
+	}
+
+	b.dashMu.Lock()
+	msgID := b.dashboards[chatID]
+	if msgID == 0 && chatID == b.cfg.AllowedChatID {
+		msgID = b.dashboardMsgID
+	}
+	b.dashMu.Unlock()
+
+	if msgID != 0 {
+		err := b.tg.EditMessageMedia(chatID, msgID, bytes.NewReader(photoBytes), caption, markup)
+		if err == nil {
+			return nil
+		}
+		log.Printf("renderDashboardPhoto: не удалось обновить сообщение %d в чате %d (%v), создаю новое...", msgID, chatID, err)
+		_ = b.tg.DeleteMessage(chatID, msgID)
+	}
+
+	newID, err := b.tg.SendPhotoWithMarkup(chatID, bytes.NewReader(photoBytes), caption, b.cfg.IsDNDActive(), markup)
 	if err == nil && newID != 0 {
 		b.dashMu.Lock()
 		b.dashboards[chatID] = newID
@@ -464,9 +513,20 @@ func (b *Bot) getMainDashboardForChat(chatID int64) (string, *telegram.InlineKey
 }
 
 func (b *Bot) broadcastMainDashboard() {
+	var mapBytes []byte
+	if b.val != nil {
+		if r, err := b.val.GetMapReader(); err == nil {
+			mapBytes, _ = io.ReadAll(r)
+			r.Close()
+		}
+	}
 	for _, chatID := range b.authSvc.GetAllUserChatIDs() {
 		text, markup := b.getMainDashboardForChat(chatID)
-		_ = b.renderDashboardForChat(chatID, text, markup)
+		if len(mapBytes) > 0 {
+			_ = b.renderDashboardPhotoForChat(chatID, bytes.NewReader(mapBytes), text, markup)
+		} else {
+			_ = b.renderDashboardForChat(chatID, text, markup)
+		}
 	}
 }
 
