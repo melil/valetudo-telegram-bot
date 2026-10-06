@@ -49,101 +49,70 @@
 
 ## ⚡️ Быстрый старт (Quick Start)
 
-Развертывание бота прямо на роботе занимает **3–5 минут**. Бот работает автономно внутри встроенной ОС робота в директории `/data/tgbot` под управлением легковесного супервизора `run.sh`.
+Развертывание бота выполняется интерактивным мастером **в одну команду**:
 
-### Шаг 0. Пререквизиты
-1. **Go 1.22+** на вашем компьютере ([golang.org](https://go.dev/dl/)).
-2. **SSH-доступ к рутованному роботу**: `ssh root@<ROBOT_IP>`.
-3. **Telegram-данные**:
-   - Токен бота от [@BotFather](https://t.me/BotFather) (`<YOUR_BOT_TOKEN>`).
-   - Ваш числовой Telegram ID от [@userinfobot](https://t.me/userinfobot) (`<YOUR_TELEGRAM_ID>`).
+### 1. Запуск мастера установки
 
----
-
-### Шаг 1. Создание конфигурации на роботе
-Выполните одну команду на компьютере для создания рабочей папки и минимального файла окружения `.env` на роботе:
-
+**macOS / Linux (или Git Bash):**
 ```bash
-ssh root@<ROBOT_IP> "mkdir -p /data/tgbot && printf 'BOT_TOKEN=%s\nCHAT_ID=%s\n' '<YOUR_BOT_TOKEN>' '<YOUR_TELEGRAM_ID>' > /data/tgbot/.env"
+./start.sh
 ```
-
-> [!TIP]
-> Все остальные параметры (`VALETUDO_BASE_URL`, `DB_PATH`, `BOT_LANG=ru`, тихий ночной режим `DND`) уже настроены по умолчанию на локальный API робота (`http://127.0.0.1`).
-
----
-
-### Шаг 2. Установка и запуск (выберите удобный вариант)
-
-#### Вариант А: Автоматический деплой скриптом (Рекомендуется)
 
 **Windows (PowerShell):**
 ```powershell
-.\deploy.ps1 -RobotIP "<ROBOT_IP>"
-```
-
-**macOS / Linux (One-liner в терминале):**
-```bash
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o tgbot ./cmd/bot && \
-ssh root@<ROBOT_IP> "killall run.sh tgbot 2>/dev/null || true; sleep 1; rm -f /var/run/tgbot_run.pid /tmp/tgbot.alive" && \
-scp tgbot run.sh root@<ROBOT_IP>:/data/tgbot/ && \
-ssh root@<ROBOT_IP> "chmod +x /data/tgbot/tgbot /data/tgbot/run.sh && nohup /data/tgbot/run.sh >/dev/null 2>&1 &"
+.\start.ps1
 ```
 
 ---
 
-#### Вариант Б: Ручной деплой в 4 шага
+### 2. Ответы на шаги мастера в терминале
+Мастер последовательно спросит всё необходимое, вам нужно лишь ввести значения и нажимать **[Enter]**:
+1. 🌍 **Язык мастера и бота** (`1` — Русский, `2` — English, `3` — Deutsch, `4` — 简体中文).
+2. 🌐 **IP-адрес робота** (например, `192.168.1.91`, по умолчанию просто нажмите `Enter`).
+3. 🔑 **SSH-пользователь** (по умолчанию `root`, просто нажмите `Enter`).
+4. 🤖 **Токен бота** от [@BotFather](https://t.me/BotFather).
+5. 🆔 **Ваш Telegram ID** от [@userinfobot](https://t.me/userinfobot).
+6. 🚀 **Добавление в автозагрузку при включении робота** (`Y/n`, по умолчанию `Y`).
 
-1. **Кросс-компиляция статического бинарника на ПК:**
-   - **Linux / macOS:**
-     ```bash
-     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o tgbot ./cmd/bot
-     ```
-   - **Windows (PowerShell):**
-     ```powershell
-     $env:CGO_ENABLED="0"; $env:GOOS="linux"; $env:GOARCH="arm64"
-     go build -trimpath -ldflags="-s -w" -o tgbot ./cmd/bot
-     ```
-
-2. **Передача бинарника и супервизора на робота:**
-   ```bash
-   scp tgbot run.sh root@<ROBOT_IP>:/data/tgbot/
-   ```
-
-3. **Проверка прав на исполнение:**
-   ```bash
-   ssh root@<ROBOT_IP> "chmod +x /data/tgbot/tgbot /data/tgbot/run.sh"
-   ```
-
-4. **Запуск супервизора в фоне:**
-   ```bash
-   ssh root@<ROBOT_IP> "nohup /data/tgbot/run.sh >/dev/null 2>&1 &"
-   ```
-
-   *(Опционально) Добавление в автозагрузку при старте робота (Valetudo/Dreame):*
-   ```bash
-   ssh root@<ROBOT_IP> "grep -q '/data/tgbot/run.sh' /data/_root.sh 2>/dev/null || echo '/data/tgbot/run.sh &' >> /data/_root.sh"
-   ```
+> [!TIP]
+> **Что мастер сделает автоматически «под капотом»:**
+> - Проверит наличие компилятора Go (1.22+) и скомпилирует бинарник под ARM64 (`linux/arm64`).
+> - Проверит подключение к роботу по SSH.
+> - Создаст директорию `/data/tgbot` и запишет безопасный файл конфигурации `.env`.
+> - Передаст файлы `tgbot` и `run.sh` на робота через SCP.
+> - Настроит права исполнения, запустит супервизор в фоне и добавит в автозагрузку (`/data/_root.sh`).
 
 ---
 
-### Шаг 3. Проверка работы
+### 3. Проверка работы
 
-1. **Просмотр логов в реальном времени:**
+1. Откройте вашего бота в Telegram и отправьте команду `/start` — появится интерактивный дашборд управления роботом.
+2. Просмотр логов работы бота на роботе в реальном времени:
    ```bash
    ssh root@<ROBOT_IP> "tail -f /tmp/log/custom/tgbot.log"
    ```
 
-2. **Ожидаемый вывод логов:**
-   ```text
-   [...] supervisor[...]: Supervisor started (PID ...)
-   [...] supervisor[...]: System clock ready
-   [...] supervisor[...]: Valetudo is ready after 0s
-   [...] supervisor[...]: Starting tgbot...
-   [...] Бот запущен. Слушаю входящие обновления Telegram...
+<details>
+<summary>🛠 Ручной способ сборки и деплоя (без мастера)</summary>
+
+Если вы предпочитаете выполнить шаги вручную:
+
+1. **Кросс-компиляция на ПК:**
+   ```bash
+   CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o tgbot ./cmd/bot
    ```
 
-3. **Результат в Telegram:**
-   Откройте диалог с вашим ботом в Telegram и отправьте команду `/start` — бот мгновенно ответит интерактивным дашбордом управления роботом.
+2. **Создание каталога и файла `.env` на роботе:**
+   ```bash
+   ssh root@<ROBOT_IP> "mkdir -p /data/tgbot && printf 'BOT_TOKEN=%s\nCHAT_ID=%s\n' '<YOUR_BOT_TOKEN>' '<YOUR_TELEGRAM_ID>' > /data/tgbot/.env"
+   ```
+
+3. **Копирование файлов и запуск супервизора:**
+   ```bash
+   scp tgbot run.sh root@<ROBOT_IP>:/data/tgbot/
+   ssh root@<ROBOT_IP> "chmod +x /data/tgbot/tgbot /data/tgbot/run.sh && nohup /data/tgbot/run.sh >/dev/null 2>&1 &"
+   ```
+</details>
 
 ---
 
@@ -189,7 +158,9 @@ ssh root@<ROBOT_IP> "chmod +x /data/tgbot/tgbot /data/tgbot/run.sh && nohup /dat
 │
 ├── .github/workflows/               # Автоматическая сборка релизов при пуше тэгов
 │   └── release.yml
-├── deploy.ps1                       # Скрипт сборки и деплоя на робота по SSH/SCP
+├── start.sh                         # Интерактивный мастер быстрой установки (macOS/Linux/Bash)
+├── start.ps1                        # Интерактивный мастер быстрой установки (Windows PowerShell)
+├── deploy.ps1                       # Скрипт прямого деплоя на робота по SSH/SCP
 ├── run.sh                           # Скрипт супервизора процесса для робота
 ├── Dockerfile                       # Многоэтапный Docker-образ
 └── go.mod
