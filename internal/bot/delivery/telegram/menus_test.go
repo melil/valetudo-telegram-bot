@@ -261,3 +261,70 @@ func TestBuildHelpText(t *testing.T) {
 	}
 }
 
+func TestWashTempAndDryTimeMenus(t *testing.T) {
+	// 1. Wash Temp Menu
+	text, markup := GetWashTempMenu([]string{"cold", "hot"}, i18n.LocaleRU)
+	if !strings.Contains(text, "Температура воды") {
+		t.Errorf("expected wash temp title in text, got: %s", text)
+	}
+	var washCallbacks []string
+	for _, row := range markup.InlineKeyboard {
+		for _, btn := range row {
+			washCallbacks = append(washCallbacks, btn.CallbackData)
+		}
+	}
+	if len(washCallbacks) < 3 || washCallbacks[0] != "set_wash_temp:cold" || washCallbacks[1] != "set_wash_temp:hot" || washCallbacks[2] != "menu_station" {
+		t.Errorf("unexpected wash temp callbacks: %+v", washCallbacks)
+	}
+
+	// 2. Dry Time Menu
+	text, markup = GetDryTimeMenu([]string{"2h", "3h", "4h"}, i18n.LocaleRU)
+	if !strings.Contains(text, "Время сушки") {
+		t.Errorf("expected dry time title in text, got: %s", text)
+	}
+	var dryCallbacks []string
+	for _, row := range markup.InlineKeyboard {
+		for _, btn := range row {
+			dryCallbacks = append(dryCallbacks, btn.CallbackData)
+		}
+	}
+	if len(dryCallbacks) < 4 || dryCallbacks[0] != "set_dry_time:2h" || dryCallbacks[1] != "set_dry_time:3h" || dryCallbacks[2] != "set_dry_time:4h" || dryCallbacks[3] != "menu_station" {
+		t.Errorf("unexpected dry time callbacks: %+v", dryCallbacks)
+	}
+}
+
+func TestStationMenu_WashTempAndDryTimeButtons(t *testing.T) {
+	caps := valetudo.NewCapabilitySet([]string{
+		string(valetudo.CapBasicControl),
+		string(valetudo.CapMopDockMopWashTemperatureControl),
+		string(valetudo.CapMopDockMopDryingTimeControl),
+	})
+
+	_, markup := GetStationMenu(caps, "docked", i18n.LocaleRU)
+	var callbacks []string
+	for _, row := range markup.InlineKeyboard {
+		for _, btn := range row {
+			callbacks = append(callbacks, btn.CallbackData)
+		}
+	}
+
+	hasWashTemp := false
+	hasDryTime := false
+	for _, cb := range callbacks {
+		if cb == "menu_wash_temp" {
+			hasWashTemp = true
+		}
+		if cb == "menu_dry_time" {
+			hasDryTime = true
+		}
+	}
+
+	if !hasWashTemp {
+		t.Errorf("expected menu_wash_temp button in station menu")
+	}
+	if !hasDryTime {
+		t.Errorf("expected menu_dry_time button in station menu")
+	}
+}
+
+

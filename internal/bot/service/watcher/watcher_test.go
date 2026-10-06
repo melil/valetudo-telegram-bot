@@ -54,7 +54,13 @@ func (m *mockRobotClient) ResetConsumable(cType, subType string) error { return 
 func (m *mockRobotClient) GetMapReader() (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("fake-png")), nil
 }
-func (m *mockRobotClient) SetOperationMode(mode string) error { return nil }
+func (m *mockRobotClient) SetOperationMode(mode string) error                        { return nil }
+func (m *mockRobotClient) SetMopWashTemperature(temp string) error                  { return nil }
+func (m *mockRobotClient) SetMopDryingTime(duration string) error                   { return nil }
+func (m *mockRobotClient) SetMopExtension(enable bool) error                        { return nil }
+func (m *mockRobotClient) GetPresets(capability string) ([]string, error)           { return nil, nil }
+func (m *mockRobotClient) GetMopWashTemperatureProperties() ([]string, error)        { return nil, nil }
+func (m *mockRobotClient) GetMopDryingTimeProperties() ([]string, error)             { return nil, nil }
 func (m *mockRobotClient) GetCurrentSessionStats() (int, int, float64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -233,3 +239,133 @@ func TestWatcher_MidCleanDockingDoesNotPrematurelyFinishSession(t *testing.T) {
 		t.Errorf("expected final report to contain original rooms, got %s", caption)
 	}
 }
+
+func TestWatcher_WaterTankNotifications(t *testing.T) {
+	mockVal := &mockRobotClient{}
+	mockTg := &mockMessenger{}
+	authSvc := auth.NewService(123, &mockUserRepo{}, mockTg)
+	sessionSvc := session.NewService(mockVal)
+
+	svc := NewService(
+		mockVal,
+		mockTg,
+		authSvc,
+		sessionSvc,
+		Config{
+			Interval: 10 * time.Millisecond,
+			TranslateUser: func(chatID int64, key string, args ...any) string {
+				return key
+			},
+		},
+	)
+
+	// Baseline: docked, tanks ok
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{Class: "StatusStateAttribute", Value: "docked", Flag: "none"},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_clean", Value: "ok"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_dirty", Value: "ok"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go svc.Start(ctx)
+	time.Sleep(30 * time.Millisecond) // initial tick
+
+	// 1. User extracts clean water tank -> should receive watcher.clean_water_missing
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{Class: "StatusStateAttribute", Value: "docked", Flag: "none"},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_clean", Value: "missing"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_dirty", Value: "ok"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+	time.Sleep(35 * time.Millisecond)
+
+	mockTg.mu.Lock()
+	if len(mockTg.sentMessages) != 1 || mockTg.sentMessages[0] != "watcher.clean_water_missing" {
+		t.Fatalf("expected watcher.clean_water_missing, got: %v", mockTg.sentMessages)
+	}
+	mockTg.sentMessages = nil
+	mockTg.mu.Unlock()
+
+	// 2. User puts clean water tank back -> no notification
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{Class: "StatusStateAttribute", Value: "docked", Flag: "none"},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_clean", Value: "ok"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_dirty", Value: "ok"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+	time.Sleep(35 * time.Millisecond)
+
+	mockTg.mu.Lock()
+	if len(mockTg.sentMessages) != 0 {
+		t.Fatalf("expected no messages on tank restoration, got: %v", mockTg.sentMessages)
+	}
+	mockTg.mu.Unlock()
+
+	// 3. User extracts dirty water tank while robot is idle -> should receive watcher.dirty_water_missing (NOT dirty_water_full)
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{Class: "StatusStateAttribute", Value: "docked", Flag: "none"},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_clean", Value: "ok"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_dirty", Value: "full"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+	time.Sleep(35 * time.Millisecond)
+
+	mockTg.mu.Lock()
+	if len(mockTg.sentMessages) != 1 || mockTg.sentMessages[0] != "watcher.dirty_water_missing" {
+		t.Fatalf("expected watcher.dirty_water_missing when extracted while idle, got: %v", mockTg.sentMessages)
+	}
+	mockTg.sentMessages = nil
+	mockTg.mu.Unlock()
+
+	// 4. User puts dirty water tank back -> no notification
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{Class: "StatusStateAttribute", Value: "docked", Flag: "none"},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_clean", Value: "ok"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_dirty", Value: "ok"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+	time.Sleep(35 * time.Millisecond)
+
+	// 5. Dock starts cleaning mops and dirty water actually fills up -> should receive watcher.dirty_water_full
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{Class: "StatusStateAttribute", Value: "docked", Flag: "resumable"},
+		{Class: "DockStatusStateAttribute", Value: "cleaning"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_clean", Value: "ok"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_dirty", Value: "full"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+	time.Sleep(35 * time.Millisecond)
+
+	mockTg.mu.Lock()
+	if len(mockTg.sentMessages) != 1 || mockTg.sentMessages[0] != "watcher.dirty_water_full" {
+		t.Fatalf("expected watcher.dirty_water_full when full during mop cleaning, got: %v", mockTg.sentMessages)
+	}
+	mockTg.sentMessages = nil
+	mockTg.mu.Unlock()
+
+	// 6. Clean water runs low (empty) -> should receive watcher.clean_water_low
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{Class: "StatusStateAttribute", Value: "docked", Flag: "none"},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_clean", Value: "empty"},
+		{Class: "DockComponentStateAttribute", Type: "water_tank_dirty", Value: "ok"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+	time.Sleep(35 * time.Millisecond)
+
+	mockTg.mu.Lock()
+	if len(mockTg.sentMessages) != 1 || mockTg.sentMessages[0] != "watcher.clean_water_low" {
+		t.Fatalf("expected watcher.clean_water_low when water is empty, got: %v", mockTg.sentMessages)
+	}
+	mockTg.sentMessages = nil
+	mockTg.mu.Unlock()
+}
+

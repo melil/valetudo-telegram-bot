@@ -111,7 +111,32 @@
     "setting_updated": "✅ Set to: <b>%s</b>\n\n%s",
     "lang_updated": "🌐 Language switched to: <b>%s</b>"
   },
+  "fan": {
+    "select_title": "💨 <b>Select suction power:</b>",
+    "off": "Off",
+    "min": "Quiet",
+    "low": "Standard",
+    "medium": "Medium",
+    "high": "Turbo",
+    "max": "Max",
+    "turbo": "Turbo+"
+  },
+  "water": {
+    "select_title": "💧 <b>Select mop wetness:</b>",
+    "off": "Off",
+    "min": "Min",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "max": "Max"
+  },
+  "mopextend": {
+    "select_title": "🦵 <b>Extendable Mop Arm (Dreame MopExtend™):</b>\nAllows the robot to clean right along baseboards and around furniture legs.",
+    "enable": "✅ Enable",
+    "disable": "❌ Disable"
+  },
   "modes": {
+    "select_title": "🛠 <b>Select cleaning mode:</b>",
     "vacuum": "Vacuum only",
     "mop": "Mop only",
     "vacuum_and_mop": "Vacuum & Mop",
@@ -206,7 +231,11 @@
     "status_unknown": "unknown",
     "consumables_unavailable": "• Consumable data unavailable",
     "time_format": "%d min %d sec",
-    "hours_suffix": "%d h"
+    "hours_suffix": "%d h",
+    "sensor_ok": "OK",
+    "sensor_missing": "Missing",
+    "sensor_empty": "Empty",
+    "sensor_full": "Full"
   },
   "watcher": {
     "err_robot": "🚨 <b>Warning! Robot Error:</b>\nStatus: <code>%s</code> | Code: <code>%s</code>",
@@ -214,7 +243,9 @@
     "cleaning_finished_title": "Cleaning Complete!",
     "cleaning_finished_subtitle": "Robot successfully returned to dock.",
     "clean_water_low": "🚰 <b>Dock Station: Clean water tank empty!</b>\nPlease refill the tank.",
-    "dirty_water_full": "☣️ <b>Dock Station: Waste water tank full!</b>\nPlease empty the waste tank."
+    "clean_water_missing": "🚰 <b>Dock Station: Clean water tank removed!</b>",
+    "dirty_water_full": "☣️ <b>Dock Station: Waste water tank full!</b>\nPlease empty the waste tank.",
+    "dirty_water_missing": "☣️ <b>Dock Station: Waste water tank removed!</b>"
   },
   "report": {
     "last_clean": "Last cleaning",

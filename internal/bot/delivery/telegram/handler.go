@@ -103,6 +103,7 @@ func (h *Handler) SendMainMenuKeyboard(chatID int64) {
 	_, _ = h.tg.SendPayload(telegram.SendMessagePayload{
 		ChatID:              chatID,
 		Text:                h.t(chatID, "main_menu.ready"),
+		ParseMode:           "HTML",
 		ReplyMarkup:         markup,
 		DisableNotification: true,
 	})
@@ -816,6 +817,38 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 		h.logAction(chatID, "dock_dry_stop", "")
 		h.sendStationMenu(chatID)
 
+	case data == "menu_wash_temp":
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		temps, err := h.val.GetMopWashTemperatureProperties()
+		if err != nil || len(temps) == 0 {
+			temps = []string{"cold", "hot"}
+		}
+		text, markup := GetWashTempMenu(temps, loc)
+		_ = h.facade.RenderDashboard(chatID, text, markup)
+
+	case strings.HasPrefix(data, "set_wash_temp:"):
+		temp := strings.TrimPrefix(data, "set_wash_temp:")
+		_ = h.val.SetMopWashTemperature(temp)
+		h.logAction(chatID, "set_wash_temp", temp)
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		h.sendStationMenu(chatID)
+
+	case data == "menu_dry_time":
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		durations, err := h.val.GetMopDryingTimeProperties()
+		if err != nil || len(durations) == 0 {
+			durations = []string{"2h", "3h", "4h"}
+		}
+		text, markup := GetDryTimeMenu(durations, loc)
+		_ = h.facade.RenderDashboard(chatID, text, markup)
+
+	case strings.HasPrefix(data, "set_dry_time:"):
+		dur := strings.TrimPrefix(data, "set_dry_time:")
+		_ = h.val.SetMopDryingTime(dur)
+		h.logAction(chatID, "set_dry_time", dur)
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		h.sendStationMenu(chatID)
+
 	case data == "cmd_telemetry":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
 		h.sendTelemetryMenu(chatID)
@@ -880,7 +913,10 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 
 	case data == "sub_fan":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		speeds := []string{"off", "quiet", "turbo", "max"}
+		speeds, err := h.val.GetPresets("FanSpeedControlCapability")
+		if err != nil || len(speeds) == 0 {
+			speeds = []string{"low", "medium", "high", "max"}
+		}
 		var rows [][]telegram.InlineKeyboardButton
 		for _, sp := range speeds {
 			rows = append(rows, []telegram.InlineKeyboardButton{
@@ -901,7 +937,10 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 
 	case data == "sub_water":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		grades := []string{"off", "low", "medium", "high"}
+		grades, err := h.val.GetPresets("WaterUsageControlCapability")
+		if err != nil || len(grades) == 0 {
+			grades = []string{"min", "low", "medium", "high", "max"}
+		}
 		var rows [][]telegram.InlineKeyboardButton
 		for _, g := range grades {
 			rows = append(rows, []telegram.InlineKeyboardButton{
@@ -922,22 +961,20 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 
 	case data == "sub_mopextend":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		modes := []string{"off", "standard", "frequent"}
 		var rows [][]telegram.InlineKeyboardButton
-		for _, m := range modes {
-			rows = append(rows, []telegram.InlineKeyboardButton{
-				{Text: h.t(chatID, "mopextend."+m), CallbackData: "set_mopextend:" + m},
-			})
-		}
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: h.t(chatID, "mopextend.enable"), CallbackData: "set_mopextend:enable"},
+			{Text: h.t(chatID, "mopextend.disable"), CallbackData: "set_mopextend:disable"},
+		})
 		rows = append(rows, []telegram.InlineKeyboardButton{
 			{Text: h.t(chatID, "robot_settings_menu.btn_back"), CallbackData: "menu_robot_settings"},
 		})
 		_ = h.facade.RenderDashboard(chatID, h.t(chatID, "mopextend.select_title"), &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 
 	case strings.HasPrefix(data, "set_mopextend:"):
-		mode := strings.TrimPrefix(data, "set_mopextend:")
-		_ = h.val.TriggerCapabilityAction("MopExtensionControlCapability", mode)
-		h.logAction(chatID, "set_mopextend", mode)
+		action := strings.TrimPrefix(data, "set_mopextend:")
+		_ = h.val.SetMopExtension(action == "enable")
+		h.logAction(chatID, "set_mopextend", action)
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
 		h.sendRobotSettingsMenu(chatID)
 

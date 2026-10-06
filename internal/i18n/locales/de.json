@@ -111,7 +111,32 @@
     "setting_updated": "✅ Eingestellt auf: <b>%s</b>\n\n%s",
     "lang_updated": "🌐 Sprache gewechselt zu: <b>%s</b>"
   },
+  "fan": {
+    "select_title": "💨 <b>Saugleistung wählen:</b>",
+    "off": "Aus",
+    "min": "Leise",
+    "low": "Standard",
+    "medium": "Mittel",
+    "high": "Turbo",
+    "max": "Max",
+    "turbo": "Turbo+"
+  },
+  "water": {
+    "select_title": "💧 <b>Wischfeuchtigkeit wählen:</b>",
+    "off": "Aus",
+    "min": "Min",
+    "low": "Niedrig",
+    "medium": "Mittel",
+    "high": "Hoch",
+    "max": "Max"
+  },
+  "mopextend": {
+    "select_title": "🦵 <b>Ausfahrbarer Mopp-Arm (Dreame MopExtend™):</b>\nErmöglicht die Reinigung direkt an Fußleisten und um Möbelbeine herum.",
+    "enable": "✅ Aktivieren",
+    "disable": "❌ Deaktivieren"
+  },
   "modes": {
+    "select_title": "🛠 <b>Reinigungsmodus wählen:</b>",
     "vacuum": "Nur Saugen",
     "mop": "Nur Wischen",
     "vacuum_and_mop": "Saugen & Wischen",
@@ -206,7 +231,11 @@
     "status_unknown": "unbekannt",
     "consumables_unavailable": "• Daten zum Verbrauchsmaterial nicht verfügbar",
     "time_format": "%d Min. %d Sek.",
-    "hours_suffix": "%d Std."
+    "hours_suffix": "%d Std.",
+    "sensor_ok": "OK",
+    "sensor_missing": "Entnommen",
+    "sensor_empty": "Leer",
+    "sensor_full": "Voll"
   },
   "watcher": {
     "err_robot": "🚨 <b>Achtung! Roboterfehler:</b>\nStatus: <code>%s</code> | Code: <code>%s</code>",
@@ -214,7 +243,9 @@
     "cleaning_finished_title": "Reinigung abgeschlossen!",
     "cleaning_finished_subtitle": "Roboter ist erfolgreich zur Station zurückgekehrt.",
     "clean_water_low": "🚰 <b>Dockstation: Frischwasserbehälter leer!</b>\nBitte Tank auffüllen.",
-    "dirty_water_full": "☣️ <b>Dockstation: Schmutzwasserbehälter voll!</b>\nBitte Tank entleeren."
+    "clean_water_missing": "🚰 <b>Dockstation: Frischwasserbehälter entnommen!</b>",
+    "dirty_water_full": "☣️ <b>Dockstation: Schmutzwasserbehälter voll!</b>\nBitte Tank entleeren.",
+    "dirty_water_missing": "☣️ <b>Dockstation: Schmutzwasserbehälter entnommen!</b>"
   },
   "report": {
     "last_clean": "Letzte Reinigung",

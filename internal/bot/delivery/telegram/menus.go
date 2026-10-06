@@ -961,3 +961,40 @@ func GetWizardStep3(ws *domain.WizardSession, loc i18n.Locale) (string, *telegra
 
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
+
+func GetWashTempMenu(temps []string, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
+	text := i18n.T(loc, "wash_temp_menu.title")
+	if len(temps) == 0 {
+		temps = []string{"cold", "hot"}
+	}
+	var rows [][]telegram.InlineKeyboardButton
+	for _, t := range temps {
+		label := i18n.T(loc, "wash_temp_menu."+t)
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: label, CallbackData: "set_wash_temp:" + t},
+		})
+	}
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: i18n.T(loc, "station_menu.btn_back"), CallbackData: "menu_station"},
+	})
+	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func GetDryTimeMenu(durations []string, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
+	text := i18n.T(loc, "dry_time_menu.title")
+	if len(durations) == 0 {
+		durations = []string{"2h", "3h", "4h"}
+	}
+	var rows [][]telegram.InlineKeyboardButton
+	for _, d := range durations {
+		label := i18n.T(loc, "dry_time_menu."+d)
+		rows = append(rows, []telegram.InlineKeyboardButton{
+			{Text: label, CallbackData: "set_dry_time:" + d},
+		})
+	}
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: i18n.T(loc, "station_menu.btn_back"), CallbackData: "menu_station"},
+	})
+	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+

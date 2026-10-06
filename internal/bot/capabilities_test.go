@@ -298,3 +298,34 @@ func TestHelpCommand(t *testing.T) {
 	}
 }
 
+func TestSendMainMenuKeyboard_ParseModeHTML(t *testing.T) {
+	var capturedPayload telegram.SendMessagePayload
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "sendMessage") {
+			_ = json.NewDecoder(r.Body).Decode(&capturedPayload)
+			w.Write([]byte(`{"ok":true,"result":{"message_id":1}}`))
+			return
+		}
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer ts.Close()
+
+	cfg := &config.Config{
+		AllowedChatID: 12345,
+		DefaultLang:   "ru",
+	}
+	tg := telegram.NewClient("fake", ts.URL, 10)
+	val := valetudo.NewClient("http://fake", time.Second)
+	b := New(cfg, tg, val)
+
+	b.handler.SendMainMenuKeyboard(12345)
+	if capturedPayload.ParseMode != "HTML" {
+		t.Errorf("expected ParseMode to be HTML, got %q", capturedPayload.ParseMode)
+	}
+	if !strings.Contains(capturedPayload.Text, "<b>Управление роботом готово:</b>") {
+		t.Errorf("expected text to contain bold tags, got %q", capturedPayload.Text)
+	}
+}
+
+

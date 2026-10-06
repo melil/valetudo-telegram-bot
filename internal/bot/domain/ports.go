@@ -24,6 +24,12 @@ type RobotClient interface {
 	ResetConsumable(cType, subType string) error
 	GetMapReader() (io.ReadCloser, error)
 	SetOperationMode(mode string) error
+	SetMopWashTemperature(temp string) error
+	SetMopDryingTime(duration string) error
+	SetMopExtension(enable bool) error
+	GetPresets(capability string) ([]string, error)
+	GetMopWashTemperatureProperties() ([]string, error)
+	GetMopDryingTimeProperties() ([]string, error)
 	GetCurrentSessionStats() (int, int, float64)
 	GetTotalStats() (int, int, float64)
 }

@@ -203,16 +203,48 @@ func (s *Service) Start(ctx context.Context) {
 				}
 			}
 
-			if currentCleanWater != "ok" && lastCleanWater == "ok" {
-				for _, chatID := range s.authSvc.GetNotifyChatIDs("station") {
-					msg := s.cfg.TranslateUser(chatID, "watcher.clean_water_low")
-					_, _ = s.tg.SendTextMessage(chatID, msg, isDND, nil)
+			if currentCleanWater != lastCleanWater {
+				var msgKey string
+				switch currentCleanWater {
+				case "missing":
+					if lastCleanWater == "ok" {
+						msgKey = "watcher.clean_water_missing"
+					}
+				case "empty":
+					msgKey = "watcher.clean_water_low"
+				}
+
+				if msgKey != "" {
+					for _, chatID := range s.authSvc.GetNotifyChatIDs("station") {
+						msg := s.cfg.TranslateUser(chatID, msgKey)
+						_, _ = s.tg.SendTextMessage(chatID, msg, isDND, nil)
+					}
 				}
 			}
-			if currentDirtyWater != "ok" && lastDirtyWater == "ok" {
-				for _, chatID := range s.authSvc.GetNotifyChatIDs("station") {
-					msg := s.cfg.TranslateUser(chatID, "watcher.dirty_water_full")
-					_, _ = s.tg.SendTextMessage(chatID, msg, isDND, nil)
+
+			if currentDirtyWater != lastDirtyWater {
+				var msgKey string
+				switch currentDirtyWater {
+				case "missing":
+					msgKey = "watcher.dirty_water_missing"
+				case "full":
+					if lastDirtyWater == "ok" {
+						// Если станция активно моет швабры (cleaning) или робот на промежуточной стирке (isMidCleanDocked)
+						// и бак чистой воды не извлечен — сточная вода реально наполнилась от работы помпы станции.
+						// Если же станция не моет швабры (простой, сушка и т.д.), сработка датчика вызвана извлечением бачка (особенность аппаратных датчиков Dreame).
+						if (currentDockStatus == "cleaning" || isMidCleanDocked) && currentCleanWater != "missing" {
+							msgKey = "watcher.dirty_water_full"
+						} else {
+							msgKey = "watcher.dirty_water_missing"
+						}
+					}
+				}
+
+				if msgKey != "" {
+					for _, chatID := range s.authSvc.GetNotifyChatIDs("station") {
+						msg := s.cfg.TranslateUser(chatID, msgKey)
+						_, _ = s.tg.SendTextMessage(chatID, msg, isDND, nil)
+					}
 				}
 			}
 

@@ -228,6 +228,68 @@ func (c *Client) SetMopExtension(enable bool) error {
 	return c.TriggerCapabilityAction("MopExtensionControlCapability", action)
 }
 
+func (c *Client) GetPresets(capability string) ([]string, error) {
+	url := c.baseURL + "/capabilities/" + capability + "/presets"
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	var presets []string
+	if err := json.NewDecoder(resp.Body).Decode(&presets); err != nil {
+		return nil, err
+	}
+	return presets, nil
+}
+
+func (c *Client) GetMopWashTemperatureProperties() ([]string, error) {
+	url := c.baseURL + "/capabilities/MopDockMopWashTemperatureControlCapability/properties"
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	var data struct {
+		SupportedTemperatures []string `json:"supportedTemperatures"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	return data.SupportedTemperatures, nil
+}
+
+func (c *Client) GetMopDryingTimeProperties() ([]string, error) {
+	url := c.baseURL + "/capabilities/MopDockMopDryingTimeControlCapability/properties"
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	var data struct {
+		SupportedDurations []string `json:"supportedDurations"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, err
+	}
+	return data.SupportedDurations, nil
+}
+
+
 func (c *Client) GetAttributes() ([]GenericAttribute, error) {
 	resp, err := c.httpClient.Get(c.baseURL + "/state/attributes")
 	if err != nil {

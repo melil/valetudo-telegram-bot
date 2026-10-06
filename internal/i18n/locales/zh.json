@@ -111,7 +111,32 @@
     "setting_updated": "✅ 已设置为：<b>%s</b>\n\n%s",
     "lang_updated": "🌐 界面语言已切换为：<b>%s</b>"
   },
+  "fan": {
+    "select_title": "💨 <b>请选择吸力大小：</b>",
+    "off": "关闭",
+    "min": "安静",
+    "low": "标准",
+    "medium": "强力",
+    "high": "超强",
+    "max": "全速",
+    "turbo": "强劲+"
+  },
+  "water": {
+    "select_title": "💧 <b>请选择拖布水量：</b>",
+    "off": "关闭",
+    "min": "微湿",
+    "low": "少水",
+    "medium": "标准",
+    "high": "多水",
+    "max": "极湿"
+  },
+  "mopextend": {
+    "select_title": "🦵 <b>仿生机械臂（Dreame MopExtend™）：</b>\n贴边清洁贴合踢脚线与家具腿。",
+    "enable": "✅ 开启",
+    "disable": "❌ 关闭"
+  },
   "modes": {
+    "select_title": "🛠 <b>请选择清扫模式：</b>",
     "vacuum": "仅扫地",
     "mop": "仅拖地",
     "vacuum_and_mop": "扫拖一体",
@@ -206,7 +231,11 @@
     "status_unknown": "未知",
     "consumables_unavailable": "• 暂无耗材数据",
     "time_format": "%d 分 %d 秒",
-    "hours_suffix": "%d 小时"
+    "hours_suffix": "%d 小时",
+    "sensor_ok": "正常",
+    "sensor_missing": "已取出",
+    "sensor_empty": "缺水/空",
+    "sensor_full": "已满"
   },
   "watcher": {
     "err_robot": "🚨 <b>警告！机器人发生故障：</b>\n状态：<code>%s</code> | 错误代码：<code>%s</code>",
@@ -214,7 +243,9 @@
     "cleaning_finished_title": "清扫完成！",
     "cleaning_finished_subtitle": "机器人已成功返回基站。",
     "clean_water_low": "🚰 <b>基站提示：清水箱缺水！</b>\n请加注清水。",
-    "dirty_water_full": "☣️ <b>基站提示：污水箱已满！</b>\n请及时倾倒污水。"
+    "clean_water_missing": "🚰 <b>基站提示：清水箱已取出！</b>",
+    "dirty_water_full": "☣️ <b>基站提示：污水箱已满！</b>\n请及时倾倒污水。",
+    "dirty_water_missing": "☣️ <b>基站提示：污水箱已取出！</b>"
   },
   "report": {
     "last_clean": "上次清扫",

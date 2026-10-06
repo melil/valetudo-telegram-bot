@@ -49,6 +49,9 @@ func (c *Client) GetUpdates(offset int) ([]Update, error) {
 }
 
 func (c *Client) SendPayload(payload SendMessagePayload) (int, error) {
+	if payload.ParseMode == "" {
+		payload.ParseMode = "HTML"
+	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return 0, err

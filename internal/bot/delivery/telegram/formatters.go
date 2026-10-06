@@ -96,11 +96,22 @@ func FormatModeTitle(mode string, loc i18n.Locale) string {
 	}
 }
 
-func FormatDockSensor(val string) string {
-	if val == "ok" {
-		return "🟢 OK"
+func FormatDockSensor(val string, loc i18n.Locale) string {
+	switch val {
+	case "ok":
+		return "🟢 " + i18n.T(loc, "telemetry.sensor_ok")
+	case "missing":
+		return "🟡 " + i18n.T(loc, "telemetry.sensor_missing")
+	case "empty":
+		return "🔴 " + i18n.T(loc, "telemetry.sensor_empty")
+	case "full":
+		return "🔴 " + i18n.T(loc, "telemetry.sensor_full")
+	default:
+		if val == "" {
+			return "⚪ " + i18n.T(loc, "telemetry.status_unknown")
+		}
+		return "⚪ " + strings.ToUpper(val)
 	}
-	return "🔴 " + strings.ToUpper(val)
 }
 
 func FormatReportAlert(r *domain.CleaningReport, loc i18n.Locale) string {
@@ -435,10 +446,10 @@ func BuildTelemetryReport(
 		i18n.T(loc, "telemetry.lbl_total_runs"), totCount,
 		i18n.T(loc, "telemetry.lbl_total_stats"), totHours, totArea,
 		i18n.T(loc, "telemetry.sec_dock_tanks"),
-		i18n.T(loc, "telemetry.lbl_clean_water"), FormatDockSensor(cleanWater),
-		i18n.T(loc, "telemetry.lbl_dirty_water"), FormatDockSensor(dirtyWater),
-		i18n.T(loc, "telemetry.lbl_detergent"), FormatDockSensor(detergent),
-		i18n.T(loc, "telemetry.lbl_dustbag"), FormatDockSensor(dustbag),
+		i18n.T(loc, "telemetry.lbl_clean_water"), FormatDockSensor(cleanWater, loc),
+		i18n.T(loc, "telemetry.lbl_dirty_water"), FormatDockSensor(dirtyWater, loc),
+		i18n.T(loc, "telemetry.lbl_detergent"), FormatDockSensor(detergent, loc),
+		i18n.T(loc, "telemetry.lbl_dustbag"), FormatDockSensor(dustbag, loc),
 		i18n.T(loc, "telemetry.sec_consumables"),
 		strings.Join(consLines, "\n"),
 		i18n.T(loc, "telemetry.sec_overall"),
