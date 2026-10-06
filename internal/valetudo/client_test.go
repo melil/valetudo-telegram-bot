@@ -1,6 +1,8 @@
 package valetudo
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -135,3 +137,78 @@ func TestGetCapabilities(t *testing.T) {
 		t.Error("expected FanSpeedControlCapability to be false")
 	}
 }
+
+func TestGetMapReader_JSON(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/state/map" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Write([]byte(`{
+			"__class": "ValetudoMap",
+			"pixelSize": 5,
+			"layers": [
+				{
+					"type": "segment",
+					"metaData": {"segmentId": "1"},
+					"compressedPixels": [10, 10, 5, 10, 11, 5]
+				},
+				{
+					"type": "wall",
+					"compressedPixels": [9, 9, 7]
+				}
+			],
+			"entities": [
+				{"type": "robot_position", "points": [50, 50]}
+			]
+		}`))
+	}))
+	defer ts.Close()
+
+	c := NewClient(ts.URL, 2*time.Second)
+	reader, err := c.GetMapReader()
+	if err != nil {
+		t.Fatalf("GetMapReader error: %v", err)
+	}
+	defer reader.Close()
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, reader); err != nil {
+		t.Fatalf("failed reading map reader: %v", err)
+	}
+
+	if buf.Len() == 0 {
+		t.Fatal("expected non-empty rendered PNG")
+	}
+}
+
+func TestGetMapReader_ImagePassThrough(t *testing.T) {
+	dummyPNG := []byte("\x89PNG\r\n\x1a\nfake-png-content")
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/state/map" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Write(dummyPNG)
+	}))
+	defer ts.Close()
+
+	c := NewClient(ts.URL, 2*time.Second)
+	reader, err := c.GetMapReader()
+	if err != nil {
+		t.Fatalf("GetMapReader error: %v", err)
+	}
+	defer reader.Close()
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, reader); err != nil {
+		t.Fatalf("failed reading map reader: %v", err)
+	}
+
+	if !bytes.Equal(buf.Bytes(), dummyPNG) {
+		t.Fatalf("expected direct image pass through")
+	}
+}
+

@@ -341,12 +341,34 @@ func (c *Client) GetTotalStats() (totalHours int, totalCount int, totalAreaM2 fl
 	return
 }
 
+// GetMap fetches the raw ValetudoMap structure from /state/map.
+func (c *Client) GetMap() (*ValetudoMap, error) {
+	resp, err := c.httpClient.Get(c.baseURL + "/state/map")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	var m ValetudoMap
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		return nil, fmt.Errorf("failed to decode map json: %w", err)
+	}
+	return &m, nil
+}
+
+// GetMapReader retrieves the robot map as an image reader.
+// If the robot or a companion proxy returns an image directly (image/*), it passes it through.
+// If Valetudo returns raw map JSON (the standard behavior), it renders a high-quality PNG map.
 func (c *Client) GetMapReader() (io.ReadCloser, error) {
 	req, err := http.NewRequest("GET", c.baseURL+"/state/map", nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "image/png")
+	req.Header.Set("Accept", "image/png, application/json;q=0.9, */*;q=0.8")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -358,10 +380,23 @@ func (c *Client) GetMapReader() (io.ReadCloser, error) {
 	}
 
 	ct := resp.Header.Get("Content-Type")
-	if !strings.HasPrefix(ct, "image/") {
-		resp.Body.Close()
-		return nil, fmt.Errorf("map endpoint returned non-image content-type: %s", ct)
+	// If the server returns an image directly, return its body
+	if strings.HasPrefix(ct, "image/") {
+		return resp.Body, nil
 	}
 
-	return resp.Body, nil
+	// Valetudo returns application/json with ValetudoMap structure
+	defer resp.Body.Close()
+
+	var m ValetudoMap
+	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+		return nil, fmt.Errorf("failed to decode valetudo map json: %w", err)
+	}
+
+	pngBytes, err := RenderMapPNG(&m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render map: %w", err)
+	}
+
+	return io.NopCloser(bytes.NewReader(pngBytes)), nil
 }
