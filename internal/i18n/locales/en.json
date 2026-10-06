@@ -28,6 +28,8 @@
     "btn_consumables": "🧹 Consumables",
     "btn_resources": "📊 Resources",
     "btn_settings": "⚙️ Settings",
+    "btn_robot_settings": "⚙️ Robot Settings",
+    "btn_bot_settings": "🛠 Bot Settings",
     "btn_back": "⬅️ Back to Robot",
     "started": "🚀 <b>Full cleaning started.</b>",
     "resumed": "▶️ <b>Cleaning resumed.</b>",
@@ -36,6 +38,14 @@
     "located": "🔊 Playing sound beacon!",
     "stopped": "🛑 Cleaning stopped. Returning to dock.",
     "stopped_inplace": "🛑 <b>Robot stopped in place.</b>"
+  },
+  "robot_settings_menu": {
+    "title": "⚙️ <b>Robot Settings</b>\nCleaning parameters and device status:",
+    "btn_back": "⬅️ Back to Robot Settings"
+  },
+  "bot_settings_menu": {
+    "title": "🛠 <b>Telegram Bot Settings</b>\nBot management and system options:",
+    "btn_back": "⬅️ Back to Bot Settings"
   },
   "station_menu": {
     "title": "🏠 <b>Dock Station Control</b>\nSelect an action:",

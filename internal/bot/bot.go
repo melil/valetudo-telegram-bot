@@ -542,6 +542,14 @@ func (b *Bot) getSettingsMainMenu() (string, *telegram.InlineKeyboardMarkup) {
 	return delivery.GetSettingsMainMenu(b.Caps(), b.db != nil, b.isUserAdmin(b.GetActiveChatID()), b.GetLang())
 }
 
+func (b *Bot) getRobotSettingsMenu() (string, *telegram.InlineKeyboardMarkup) {
+	return delivery.GetRobotSettingsMenu(b.Caps(), b.GetLang())
+}
+
+func (b *Bot) getBotSettingsMenu() (string, *telegram.InlineKeyboardMarkup) {
+	return delivery.GetBotSettingsMenu(b.db != nil, b.isUserAdmin(b.GetActiveChatID()), b.GetLang())
+}
+
 func (b *Bot) getUsersMenu(currentChatID int64) (string, *telegram.InlineKeyboardMarkup) {
 	return delivery.GetUsersMenu(b.db, currentChatID, b.GetLang())
 }

@@ -179,10 +179,10 @@ func TestSettingsMenuMapping(t *testing.T) {
 		string(valetudo.CapFanSpeedControl),
 	}))
 
-	_, markup := b.getSettingsMainMenu()
-	// Should contain: btn_fan, btn_lang, btn_updates, btn_back (4 rows)
-	if len(markup.InlineKeyboard) != 4 {
-		t.Fatalf("expected 4 items in settings menu, got %d", len(markup.InlineKeyboard))
+	_, markup := b.getRobotSettingsMenu()
+	// Should contain telemetry and fan in row 1, and back in row 2 (2 rows)
+	if len(markup.InlineKeyboard) != 2 {
+		t.Fatalf("expected 2 rows in robot settings menu, got %d", len(markup.InlineKeyboard))
 	}
 
 	callbacks := []string{}
@@ -192,7 +192,7 @@ func TestSettingsMenuMapping(t *testing.T) {
 		}
 	}
 
-	expected := []string{"sub_fan", "sub_lang", "sub_updates", "menu_robot"}
+	expected := []string{"cmd_telemetry", "sub_fan", "menu_robot"}
 	for i, exp := range expected {
 		if callbacks[i] != exp {
 			t.Errorf("callback[%d]: expected %q, got %q", i, exp, callbacks[i])

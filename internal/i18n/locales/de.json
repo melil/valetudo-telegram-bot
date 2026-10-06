@@ -28,6 +28,8 @@
     "btn_consumables": "🧹 Verbrauchsmaterial",
     "btn_resources": "📊 Ressourcen",
     "btn_settings": "⚙️ Einstellungen",
+    "btn_robot_settings": "⚙️ Robotereinstellungen",
+    "btn_bot_settings": "🛠 Bot-Einstellungen",
     "btn_back": "⬅️ Zurück zum Roboter",
     "started": "🚀 <b>Komplettreinigung gestartet.</b>",
     "resumed": "▶️ <b>Reinigung fortgesetzt.</b>",
@@ -36,6 +38,14 @@
     "located": "🔊 Tonsignal wird abgespielt!",
     "stopped": "🛑 Reinigung abgebrochen. Kehre zur Station zurück.",
     "stopped_inplace": "🛑 <b>Roboter angehalten.</b>"
+  },
+  "robot_settings_menu": {
+    "title": "⚙️ <b>Robotereinstellungen</b>\nReinigungsparameter und Gerätestatus:",
+    "btn_back": "⬅️ Zurück zu Robotereinstellungen"
+  },
+  "bot_settings_menu": {
+    "title": "🛠 <b>Telegram-Bot-Einstellungen</b>\nBot-Verwaltung und Systemoptionen:",
+    "btn_back": "⬅️ Zurück zu Bot-Einstellungen"
   },
   "station_menu": {
     "title": "🏠 <b>Dockstation-Steuerung</b>\nAktion auswählen:",

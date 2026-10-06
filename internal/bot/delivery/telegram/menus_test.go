@@ -8,6 +8,7 @@ import (
 
 	"tgbot/internal/database"
 	"tgbot/internal/i18n"
+	"tgbot/internal/valetudo"
 )
 
 type mockAuditUserRepo struct {
@@ -137,5 +138,86 @@ func TestGetAuditLogMenu_PaginationAndExpansion(t *testing.T) {
 	}
 	if len(cardMarkup.InlineKeyboard) == 0 {
 		t.Errorf("expected non-empty card markup")
+	}
+}
+
+func TestRobotAndSettingsMenusHierarchy(t *testing.T) {
+	caps := valetudo.NewCapabilitySet([]string{
+		string(valetudo.CapBasicControl),
+		string(valetudo.CapConsumableMonitoring),
+		string(valetudo.CapFanSpeedControl),
+		string(valetudo.CapWaterUsageControl),
+	})
+
+	// 1. Robot menu has settings split into robot settings & bot settings
+	_, robotMarkup := GetRobotMenu(caps, "docked", "none", i18n.LocaleRU)
+	robotCallbacks := make(map[string]bool)
+	for _, row := range robotMarkup.InlineKeyboard {
+		for _, btn := range row {
+			robotCallbacks[btn.CallbackData] = true
+		}
+	}
+	if !robotCallbacks["menu_robot_settings"] {
+		t.Errorf("expected menu_robot_settings in robot menu")
+	}
+	if !robotCallbacks["menu_bot_settings"] {
+		t.Errorf("expected menu_bot_settings in robot menu")
+	}
+	if !robotCallbacks["menu_main"] {
+		t.Errorf("expected menu_main in robot menu")
+	}
+
+	// 2. Robot settings menu has physical/cleaning options
+	_, robotSettingsMarkup := GetRobotSettingsMenu(caps, i18n.LocaleRU)
+	robotSettingsCallbacks := make(map[string]bool)
+	for _, row := range robotSettingsMarkup.InlineKeyboard {
+		for _, btn := range row {
+			robotSettingsCallbacks[btn.CallbackData] = true
+		}
+	}
+	if !robotSettingsCallbacks["cmd_consumables"] {
+		t.Errorf("expected cmd_consumables in robot settings")
+	}
+	if !robotSettingsCallbacks["cmd_telemetry"] {
+		t.Errorf("expected cmd_telemetry in robot settings")
+	}
+	if !robotSettingsCallbacks["sub_fan"] {
+		t.Errorf("expected sub_fan in robot settings")
+	}
+	if !robotSettingsCallbacks["sub_water"] {
+		t.Errorf("expected sub_water in robot settings")
+	}
+	if !robotSettingsCallbacks["menu_robot"] {
+		t.Errorf("expected menu_robot back button in robot settings")
+	}
+
+	// 3. Bot settings menu has system/bot options
+	_, botSettingsMarkup := GetBotSettingsMenu(true, true, i18n.LocaleRU)
+	botSettingsCallbacks := make(map[string]bool)
+	for _, row := range botSettingsMarkup.InlineKeyboard {
+		for _, btn := range row {
+			botSettingsCallbacks[btn.CallbackData] = true
+		}
+	}
+	if !botSettingsCallbacks["sub_lang"] {
+		t.Errorf("expected sub_lang in bot settings")
+	}
+	if !botSettingsCallbacks["sub_notifications"] {
+		t.Errorf("expected sub_notifications in bot settings")
+	}
+	if !botSettingsCallbacks["cmd_resources"] {
+		t.Errorf("expected cmd_resources in bot settings")
+	}
+	if !botSettingsCallbacks["sub_users"] {
+		t.Errorf("expected sub_users in bot settings")
+	}
+	if !botSettingsCallbacks["sub_audit"] {
+		t.Errorf("expected sub_audit in bot settings")
+	}
+	if !botSettingsCallbacks["sub_updates"] {
+		t.Errorf("expected sub_updates in bot settings")
+	}
+	if !botSettingsCallbacks["menu_robot"] {
+		t.Errorf("expected menu_robot back button in bot settings")
 	}
 }

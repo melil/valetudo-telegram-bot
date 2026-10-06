@@ -240,9 +240,9 @@ func TestBot_UsersMenuAndDeletion(t *testing.T) {
 		t.Fatalf("AddUser failed: %v", err)
 	}
 
-	// 1. Проверяем, что в меню настроек админа появляется кнопка "sub_users"
+	// 1. Проверяем, что в меню настроек бота админа появляется кнопка "sub_users"
 	b.SetActiveChatID(1001) // Админ
-	_, settingsMarkup := b.getSettingsMainMenu()
+	_, settingsMarkup := b.getBotSettingsMenu()
 	hasUsersBtn := false
 	for _, row := range settingsMarkup.InlineKeyboard {
 		for _, btn := range row {
@@ -252,7 +252,7 @@ func TestBot_UsersMenuAndDeletion(t *testing.T) {
 		}
 	}
 	if !hasUsersBtn {
-		t.Fatal("expected 'sub_users' button in admin settings menu")
+		t.Fatal("expected 'sub_users' button in admin bot settings menu")
 	}
 
 	// 2. Открываем меню пользователей

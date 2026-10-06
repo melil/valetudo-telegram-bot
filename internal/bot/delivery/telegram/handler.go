@@ -236,6 +236,12 @@ func (h *Handler) HandleTextCommand(msg *telegram.Message) {
 		}
 		h.handleCheckUpdate(chatID, loc)
 
+	case cleanText == "/settings":
+		h.sendRobotSettingsMenu(chatID)
+
+	case cleanText == "/botsettings":
+		h.sendBotSettingsMenu(chatID)
+
 	case cleanText == "/lang":
 		text, markup := GetLanguageMenu(loc)
 		_ = h.facade.RenderDashboard(chatID, text, markup)
@@ -289,6 +295,19 @@ func (h *Handler) sendStationMenu(chatID int64) {
 	_ = h.facade.RenderDashboard(chatID, text, markup)
 }
 
+func (h *Handler) sendRobotSettingsMenu(chatID int64) {
+	loc := h.facade.GetUserLang(chatID)
+	text, markup := GetRobotSettingsMenu(h.facade.GetCaps(), loc)
+	_ = h.facade.RenderDashboard(chatID, text, markup)
+}
+
+func (h *Handler) sendBotSettingsMenu(chatID int64) {
+	loc := h.facade.GetUserLang(chatID)
+	isAdmin := h.authSvc.IsUserAdmin(chatID)
+	text, markup := GetBotSettingsMenu(h.db != nil, isAdmin, loc)
+	_ = h.facade.RenderDashboard(chatID, text, markup)
+}
+
 func (h *Handler) sendTelemetryMenu(chatID int64) {
 	loc := h.facade.GetUserLang(chatID)
 	status, flag := h.facade.GetRobotStatus()
@@ -296,7 +315,7 @@ func (h *Handler) sendTelemetryMenu(chatID int64) {
 	text := BuildTelemetryReport(h.val, h.consumablesSvc, hStats.OSUptime, loc, FormatStatusDisplay(status, flag, loc))
 	markup := &telegram.InlineKeyboardMarkup{
 		InlineKeyboard: [][]telegram.InlineKeyboardButton{
-			{{Text: h.t(chatID, "robot_menu.btn_back"), CallbackData: "menu_robot"}},
+			{{Text: h.t(chatID, "robot_settings_menu.btn_back"), CallbackData: "menu_robot_settings"}},
 		},
 	}
 	_ = h.facade.RenderDashboard(chatID, text, markup)
@@ -310,7 +329,7 @@ func (h *Handler) sendResourcesMenu(chatID int64) {
 	markup := &telegram.InlineKeyboardMarkup{
 		InlineKeyboard: [][]telegram.InlineKeyboardButton{
 			{{Text: h.t(chatID, "resources.btn_refresh"), CallbackData: "cmd_resources_refresh"}},
-			{{Text: h.t(chatID, "robot_menu.btn_back"), CallbackData: "menu_robot"}},
+			{{Text: h.t(chatID, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 		},
 	}
 	_ = h.facade.RenderDashboard(chatID, text, markup)
@@ -514,11 +533,17 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
 		h.sendRoomsMenu(chatID)
 
+	case data == "menu_robot_settings":
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		h.sendRobotSettingsMenu(chatID)
+
+	case data == "menu_bot_settings":
+		_ = h.tg.AnswerCallbackQuery(cb.ID)
+		h.sendBotSettingsMenu(chatID)
+
 	case data == "menu_settings":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		isAdmin := h.authSvc.IsUserAdmin(chatID)
-		text, markup := GetSettingsMainMenu(caps, h.db != nil, isAdmin, loc)
-		_ = h.facade.RenderDashboard(chatID, text, markup)
+		h.sendRobotSettingsMenu(chatID)
 
 	case data == "sub_users":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
@@ -547,9 +572,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 			_ = h.updateSvc.DismissVersion(ver)
 		}
 		_ = h.tg.AnswerCallbackQueryAlert(cb.ID, h.t(chatID, "updates.dismissed"), false)
-		isAdmin := h.authSvc.IsUserAdmin(chatID)
-		text, markup := GetSettingsMainMenu(caps, h.db != nil, isAdmin, loc)
-		_ = h.facade.RenderDashboard(chatID, text, markup)
+		h.sendBotSettingsMenu(chatID)
 
 	case strings.HasPrefix(data, "action_update_bot"):
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
@@ -818,7 +841,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 			})
 		}
 		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+			{Text: h.t(chatID, "robot_settings_menu.btn_back"), CallbackData: "menu_robot_settings"},
 		})
 		_ = h.facade.RenderDashboard(chatID, h.t(chatID, "modes.select_title"), &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 
@@ -827,7 +850,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 		_ = h.val.SetOperationMode(mode)
 		h.logAction(chatID, "set_mode", mode)
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		h.sendRobotMenu(chatID)
+		h.sendRobotSettingsMenu(chatID)
 
 	case data == "sub_fan":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
@@ -839,7 +862,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 			})
 		}
 		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+			{Text: h.t(chatID, "robot_settings_menu.btn_back"), CallbackData: "menu_robot_settings"},
 		})
 		_ = h.facade.RenderDashboard(chatID, h.t(chatID, "fan.select_title"), &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 
@@ -848,7 +871,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 		_ = h.val.SetPreset("FanSpeedControlCapability", speed)
 		h.logAction(chatID, "set_fan", speed)
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		h.sendRobotMenu(chatID)
+		h.sendRobotSettingsMenu(chatID)
 
 	case data == "sub_water":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
@@ -860,7 +883,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 			})
 		}
 		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+			{Text: h.t(chatID, "robot_settings_menu.btn_back"), CallbackData: "menu_robot_settings"},
 		})
 		_ = h.facade.RenderDashboard(chatID, h.t(chatID, "water.select_title"), &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 
@@ -869,7 +892,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 		_ = h.val.SetPreset("WaterUsageControlCapability", grade)
 		h.logAction(chatID, "set_water", grade)
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		h.sendRobotMenu(chatID)
+		h.sendRobotSettingsMenu(chatID)
 
 	case data == "sub_mopextend":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
@@ -881,7 +904,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 			})
 		}
 		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+			{Text: h.t(chatID, "robot_settings_menu.btn_back"), CallbackData: "menu_robot_settings"},
 		})
 		_ = h.facade.RenderDashboard(chatID, h.t(chatID, "mopextend.select_title"), &telegram.InlineKeyboardMarkup{InlineKeyboard: rows})
 
@@ -890,7 +913,7 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 		_ = h.val.TriggerCapabilityAction("MopExtensionControlCapability", mode)
 		h.logAction(chatID, "set_mopextend", mode)
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		h.sendRobotMenu(chatID)
+		h.sendRobotSettingsMenu(chatID)
 
 	default:
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
@@ -910,7 +933,7 @@ func (h *Handler) handleCheckUpdate(chatID int64, loc i18n.Locale) {
 		markup := &telegram.InlineKeyboardMarkup{
 			InlineKeyboard: [][]telegram.InlineKeyboardButton{
 				{{Text: h.t(chatID, "updates.btn_check_again"), CallbackData: "sub_updates"}},
-				{{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+				{{Text: h.t(chatID, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 			},
 		}
 		_ = h.facade.RenderDashboard(chatID, text, markup)
@@ -941,7 +964,7 @@ func (h *Handler) handleApplyUpdate(chatID int64, targetVer string, loc i18n.Loc
 			errText := fmt.Sprintf(h.t(chatID, "updates.error_apply"), err.Error())
 			markup := &telegram.InlineKeyboardMarkup{
 				InlineKeyboard: [][]telegram.InlineKeyboardButton{
-					{{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+					{{Text: h.t(chatID, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 				},
 			}
 			_ = h.facade.RenderDashboard(chatID, errText, markup)
@@ -952,7 +975,7 @@ func (h *Handler) handleApplyUpdate(chatID int64, targetVer string, loc i18n.Loc
 			errText := fmt.Sprintf(h.t(chatID, "updates.error_apply"), err.Error())
 			markup := &telegram.InlineKeyboardMarkup{
 				InlineKeyboard: [][]telegram.InlineKeyboardButton{
-					{{Text: h.t(chatID, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+					{{Text: h.t(chatID, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 				},
 			}
 			_ = h.facade.RenderDashboard(chatID, errText, markup)

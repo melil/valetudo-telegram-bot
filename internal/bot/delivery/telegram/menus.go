@@ -211,24 +211,11 @@ func GetRobotMenu(caps *valetudo.CapabilitySet, status, flag string, loc i18n.Lo
 		}
 	}
 
-	var statusRow []telegram.InlineKeyboardButton
-	statusRow = append(statusRow, telegram.InlineKeyboardButton{
-		Text:         i18n.T(loc, "robot_menu.btn_telemetry"),
-		CallbackData: "cmd_telemetry",
-	})
-	if caps.Has(valetudo.CapConsumableMonitoring) {
-		statusRow = append(statusRow, telegram.InlineKeyboardButton{
-			Text:         i18n.T(loc, "robot_menu.btn_consumables"),
-			CallbackData: "cmd_consumables",
-		})
-	}
-	rows = append(rows, statusRow)
-
 	rows = append(rows, []telegram.InlineKeyboardButton{
-		{Text: i18n.T(loc, "robot_menu.btn_resources"), CallbackData: "cmd_resources"},
+		{Text: i18n.T(loc, "robot_menu.btn_robot_settings"), CallbackData: "menu_robot_settings"},
 	})
 	rows = append(rows, []telegram.InlineKeyboardButton{
-		{Text: i18n.T(loc, "robot_menu.btn_settings"), CallbackData: "menu_settings"},
+		{Text: i18n.T(loc, "robot_menu.btn_bot_settings"), CallbackData: "menu_bot_settings"},
 	})
 	rows = append(rows, []telegram.InlineKeyboardButton{
 		{Text: i18n.T(loc, "main_menu.btn_back_main"), CallbackData: "menu_main"},
@@ -297,40 +284,81 @@ func GetStationMenu(caps *valetudo.CapabilitySet, status string, loc i18n.Locale
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
-func GetSettingsMainMenu(caps *valetudo.CapabilitySet, hasDB bool, isAdmin bool, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
-	text := i18n.T(loc, "settings_menu.title")
+func GetRobotSettingsMenu(caps *valetudo.CapabilitySet, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
+	text := i18n.T(loc, "robot_settings_menu.title")
 	var rows [][]telegram.InlineKeyboardButton
 
+	var items []telegram.InlineKeyboardButton
+	if caps.Has(valetudo.CapConsumableMonitoring) {
+		items = append(items, telegram.InlineKeyboardButton{
+			Text:         i18n.T(loc, "robot_menu.btn_consumables"),
+			CallbackData: "cmd_consumables",
+		})
+	}
+	items = append(items, telegram.InlineKeyboardButton{
+		Text:         i18n.T(loc, "robot_menu.btn_telemetry"),
+		CallbackData: "cmd_telemetry",
+	})
 	if caps.Has(valetudo.CapOperationModeControl) {
-		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: i18n.T(loc, "settings_menu.btn_mode"), CallbackData: "sub_mode"},
+		items = append(items, telegram.InlineKeyboardButton{
+			Text:         i18n.T(loc, "settings_menu.btn_mode"),
+			CallbackData: "sub_mode",
 		})
 	}
 	if caps.Has(valetudo.CapFanSpeedControl) {
-		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: i18n.T(loc, "settings_menu.btn_fan"), CallbackData: "sub_fan"},
+		items = append(items, telegram.InlineKeyboardButton{
+			Text:         i18n.T(loc, "settings_menu.btn_fan"),
+			CallbackData: "sub_fan",
 		})
 	}
 	if caps.Has(valetudo.CapWaterUsageControl) {
-		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: i18n.T(loc, "settings_menu.btn_water"), CallbackData: "sub_water"},
+		items = append(items, telegram.InlineKeyboardButton{
+			Text:         i18n.T(loc, "settings_menu.btn_water"),
+			CallbackData: "sub_water",
 		})
 	}
 	if caps.Has(valetudo.CapMopExtensionControl) {
-		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: i18n.T(loc, "settings_menu.btn_mopextend"), CallbackData: "sub_mopextend"},
+		items = append(items, telegram.InlineKeyboardButton{
+			Text:         i18n.T(loc, "settings_menu.btn_mopextend"),
+			CallbackData: "sub_mopextend",
 		})
+	}
+
+	for i := 0; i < len(items); i += 2 {
+		end := i + 2
+		if end > len(items) {
+			end = len(items)
+		}
+		rows = append(rows, items[i:end])
 	}
 
 	rows = append(rows, []telegram.InlineKeyboardButton{
-		{Text: i18n.T(loc, "settings_menu.btn_lang"), CallbackData: "sub_lang"},
+		{Text: i18n.T(loc, "robot_menu.btn_back"), CallbackData: "menu_robot"},
 	})
 
+	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func GetBotSettingsMenu(hasDB bool, isAdmin bool, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
+	text := i18n.T(loc, "bot_settings_menu.title")
+	var rows [][]telegram.InlineKeyboardButton
+
+	var basicRow []telegram.InlineKeyboardButton
+	basicRow = append(basicRow, telegram.InlineKeyboardButton{
+		Text:         i18n.T(loc, "settings_menu.btn_lang"),
+		CallbackData: "sub_lang",
+	})
 	if hasDB {
-		rows = append(rows, []telegram.InlineKeyboardButton{
-			{Text: i18n.T(loc, "settings_menu.btn_notifications"), CallbackData: "sub_notifications"},
+		basicRow = append(basicRow, telegram.InlineKeyboardButton{
+			Text:         i18n.T(loc, "settings_menu.btn_notifications"),
+			CallbackData: "sub_notifications",
 		})
 	}
+	rows = append(rows, basicRow)
+
+	rows = append(rows, []telegram.InlineKeyboardButton{
+		{Text: i18n.T(loc, "robot_menu.btn_resources"), CallbackData: "cmd_resources"},
+	})
 
 	if hasDB && isAdmin {
 		rows = append(rows, []telegram.InlineKeyboardButton{
@@ -346,10 +374,15 @@ func GetSettingsMainMenu(caps *valetudo.CapabilitySet, hasDB bool, isAdmin bool,
 	}
 
 	rows = append(rows, []telegram.InlineKeyboardButton{
-		{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_robot"},
+		{Text: i18n.T(loc, "robot_menu.btn_back"), CallbackData: "menu_robot"},
 	})
 
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+// GetSettingsMainMenu is kept for compatibility and redirects to Robot Settings.
+func GetSettingsMainMenu(caps *valetudo.CapabilitySet, hasDB bool, isAdmin bool, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
+	return GetRobotSettingsMenu(caps, loc)
 }
 
 // GetUpToDateMenu displays a message when the bot version is already up to date.
@@ -358,7 +391,7 @@ func GetUpToDateMenu(curVer string, loc i18n.Locale) (string, *telegram.InlineKe
 	markup := &telegram.InlineKeyboardMarkup{
 		InlineKeyboard: [][]telegram.InlineKeyboardButton{
 			{{Text: i18n.T(loc, "updates.btn_check_again"), CallbackData: "sub_updates"}},
-			{{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+			{{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 		},
 	}
 	return text, markup
@@ -382,7 +415,7 @@ func GetUpdateMenu(curVer string, rel *update.ReleaseInfo, loc i18n.Locale) (str
 				{Text: i18n.T(loc, "updates.btn_later"), CallbackData: "action_update_later:" + rel.Version},
 			},
 			{
-				{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+				{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"},
 			},
 		},
 	}
@@ -394,7 +427,7 @@ func GetUsersMenu(db domain.UserRepository, currentChatID int64, loc i18n.Locale
 		text := "⚠️ База данных пользователей не подключена."
 		markup := &telegram.InlineKeyboardMarkup{
 			InlineKeyboard: [][]telegram.InlineKeyboardButton{
-				{{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+				{{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 			},
 		}
 		return text, markup
@@ -405,7 +438,7 @@ func GetUsersMenu(db domain.UserRepository, currentChatID int64, loc i18n.Locale
 		text := "❌ Ошибка получения списка пользователей: " + err.Error()
 		markup := &telegram.InlineKeyboardMarkup{
 			InlineKeyboard: [][]telegram.InlineKeyboardButton{
-				{{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+				{{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 			},
 		}
 		return text, markup
@@ -445,7 +478,7 @@ func GetUsersMenu(db domain.UserRepository, currentChatID int64, loc i18n.Locale
 	}
 
 	rows = append(rows, []telegram.InlineKeyboardButton{
-		{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+		{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"},
 	})
 
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
@@ -461,7 +494,7 @@ func GetLanguageMenu(loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
 		}
 		rows = append(rows, []telegram.InlineKeyboardButton{btn})
 	}
-	rows = append(rows, []telegram.InlineKeyboardButton{{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"}})
+	rows = append(rows, []telegram.InlineKeyboardButton{{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}})
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
@@ -470,7 +503,7 @@ func GetNotificationsMenu(db domain.UserRepository, chatID int64, hasStation boo
 		text := "⚠️ База данных не подключена."
 		markup := &telegram.InlineKeyboardMarkup{
 			InlineKeyboard: [][]telegram.InlineKeyboardButton{
-				{{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+				{{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 			},
 		}
 		return text, markup
@@ -512,7 +545,7 @@ func GetNotificationsMenu(db domain.UserRepository, chatID int64, hasStation boo
 		})
 	}
 	rows = append(rows, []telegram.InlineKeyboardButton{
-		{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+		{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"},
 	})
 
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
@@ -566,7 +599,7 @@ func GetAuditLogMenu(db domain.UserRepository, page int, expandedID int64, loc i
 		text := "⚠️ База данных не подключена."
 		markup := &telegram.InlineKeyboardMarkup{
 			InlineKeyboard: [][]telegram.InlineKeyboardButton{
-				{{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+				{{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 			},
 		}
 		return text, markup
@@ -583,7 +616,7 @@ func GetAuditLogMenu(db domain.UserRepository, page int, expandedID int64, loc i
 		text := i18n.T(loc, "audit.empty")
 		markup := &telegram.InlineKeyboardMarkup{
 			InlineKeyboard: [][]telegram.InlineKeyboardButton{
-				{{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"}},
+				{{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"}},
 			},
 		}
 		return text, markup
@@ -685,7 +718,7 @@ func GetAuditLogMenu(db domain.UserRepository, page int, expandedID int64, loc i
 	// Нижний ряд действий
 	keyboard = append(keyboard, []telegram.InlineKeyboardButton{
 		{Text: i18n.T(loc, "audit.btn_refresh"), CallbackData: fmt.Sprintf("audit:%d:%d", page, expandedID)},
-		{Text: i18n.T(loc, "settings_menu.btn_back"), CallbackData: "menu_settings"},
+		{Text: i18n.T(loc, "bot_settings_menu.btn_back"), CallbackData: "menu_bot_settings"},
 	})
 
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: keyboard}
@@ -746,7 +779,7 @@ func GetConsumablesMenu(
 		text := i18n.T(loc, "main_menu.not_supported")
 		markup := &telegram.InlineKeyboardMarkup{
 			InlineKeyboard: [][]telegram.InlineKeyboardButton{
-				{{Text: i18n.T(loc, "robot_menu.btn_back"), CallbackData: "menu_robot"}},
+				{{Text: i18n.T(loc, "robot_settings_menu.btn_back"), CallbackData: "menu_robot_settings"}},
 			},
 		}
 		return text, markup
@@ -755,7 +788,7 @@ func GetConsumablesMenu(
 	if err != nil {
 		markup := &telegram.InlineKeyboardMarkup{
 			InlineKeyboard: [][]telegram.InlineKeyboardButton{
-				{{Text: i18n.T(loc, "robot_menu.btn_back"), CallbackData: "menu_robot"}},
+				{{Text: i18n.T(loc, "robot_settings_menu.btn_back"), CallbackData: "menu_robot_settings"}},
 			},
 		}
 		return i18n.T(loc, "consumables.err_api"), markup
@@ -796,7 +829,7 @@ func GetConsumablesMenu(
 		rows = append(rows, currentRow)
 	}
 
-	rows = append(rows, []telegram.InlineKeyboardButton{{Text: i18n.T(loc, "robot_menu.btn_back"), CallbackData: "menu_robot"}})
+	rows = append(rows, []telegram.InlineKeyboardButton{{Text: i18n.T(loc, "robot_settings_menu.btn_back"), CallbackData: "menu_robot_settings"}})
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 

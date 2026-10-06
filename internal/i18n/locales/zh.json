@@ -28,6 +28,8 @@
     "btn_consumables": "🧹 耗材状态",
     "btn_resources": "📊 系统资源",
     "btn_settings": "⚙️ 设置",
+    "btn_robot_settings": "⚙️ 扫地机设置",
+    "btn_bot_settings": "🛠 Bot 设置",
     "btn_back": "⬅️ 返回机器人菜单",
     "started": "🚀 <b>已启动全屋清扫。</b>",
     "resumed": "▶️ <b>清扫已继续。</b>",
@@ -36,6 +38,14 @@
     "located": "🔊 正在发出声音提示！",
     "stopped": "🛑 清扫已中断，机器人正在返回基站。",
     "stopped_inplace": "🛑 <b>机器人已就地停止。</b>"
+  },
+  "robot_settings_menu": {
+    "title": "⚙️ <b>扫地机设置</b>\n清扫参数及设备状态：",
+    "btn_back": "⬅️ 返回扫地机设置"
+  },
+  "bot_settings_menu": {
+    "title": "🛠 <b>Telegram Bot 设置</b>\nBot 管理与系统选项：",
+    "btn_back": "⬅️ 返回 Bot 设置"
   },
   "station_menu": {
     "title": "🏠 <b>基站控制</b>\n请选择操作：",
