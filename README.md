@@ -47,6 +47,106 @@
 
 ---
 
+## ⚡️ Быстрый старт (Quick Start)
+
+Развертывание бота прямо на роботе занимает **3–5 минут**. Бот работает автономно внутри встроенной ОС робота в директории `/data/tgbot` под управлением легковесного супервизора `run.sh`.
+
+### Шаг 0. Пререквизиты
+1. **Go 1.22+** на вашем компьютере ([golang.org](https://go.dev/dl/)).
+2. **SSH-доступ к рутованному роботу**: `ssh root@<ROBOT_IP>`.
+3. **Telegram-данные**:
+   - Токен бота от [@BotFather](https://t.me/BotFather) (`<YOUR_BOT_TOKEN>`).
+   - Ваш числовой Telegram ID от [@userinfobot](https://t.me/userinfobot) (`<YOUR_TELEGRAM_ID>`).
+
+---
+
+### Шаг 1. Создание конфигурации на роботе
+Выполните одну команду на компьютере для создания рабочей папки и минимального файла окружения `.env` на роботе:
+
+```bash
+ssh root@<ROBOT_IP> "mkdir -p /data/tgbot && printf 'BOT_TOKEN=%s\nCHAT_ID=%s\n' '<YOUR_BOT_TOKEN>' '<YOUR_TELEGRAM_ID>' > /data/tgbot/.env"
+```
+
+> [!TIP]
+> Все остальные параметры (`VALETUDO_BASE_URL`, `DB_PATH`, `BOT_LANG=ru`, тихий ночной режим `DND`) уже настроены по умолчанию на локальный API робота (`http://127.0.0.1`).
+
+---
+
+### Шаг 2. Установка и запуск (выберите удобный вариант)
+
+#### Вариант А: Автоматический деплой скриптом (Рекомендуется)
+
+**Windows (PowerShell):**
+```powershell
+.\deploy.ps1 -RobotIP "<ROBOT_IP>"
+```
+
+**macOS / Linux (One-liner в терминале):**
+```bash
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o tgbot ./cmd/bot && \
+ssh root@<ROBOT_IP> "killall run.sh tgbot 2>/dev/null || true; sleep 1; rm -f /var/run/tgbot_run.pid /tmp/tgbot.alive" && \
+scp tgbot run.sh root@<ROBOT_IP>:/data/tgbot/ && \
+ssh root@<ROBOT_IP> "chmod +x /data/tgbot/tgbot /data/tgbot/run.sh && nohup /data/tgbot/run.sh >/dev/null 2>&1 &"
+```
+
+---
+
+#### Вариант Б: Ручной деплой в 4 шага
+
+1. **Кросс-компиляция статического бинарника на ПК:**
+   - **Linux / macOS:**
+     ```bash
+     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o tgbot ./cmd/bot
+     ```
+   - **Windows (PowerShell):**
+     ```powershell
+     $env:CGO_ENABLED="0"; $env:GOOS="linux"; $env:GOARCH="arm64"
+     go build -trimpath -ldflags="-s -w" -o tgbot ./cmd/bot
+     ```
+
+2. **Передача бинарника и супервизора на робота:**
+   ```bash
+   scp tgbot run.sh root@<ROBOT_IP>:/data/tgbot/
+   ```
+
+3. **Проверка прав на исполнение:**
+   ```bash
+   ssh root@<ROBOT_IP> "chmod +x /data/tgbot/tgbot /data/tgbot/run.sh"
+   ```
+
+4. **Запуск супервизора в фоне:**
+   ```bash
+   ssh root@<ROBOT_IP> "nohup /data/tgbot/run.sh >/dev/null 2>&1 &"
+   ```
+
+   *(Опционально) Добавление в автозагрузку при старте робота (Valetudo/Dreame):*
+   ```bash
+   ssh root@<ROBOT_IP> "grep -q '/data/tgbot/run.sh' /data/_root.sh 2>/dev/null || echo '/data/tgbot/run.sh &' >> /data/_root.sh"
+   ```
+
+---
+
+### Шаг 3. Проверка работы
+
+1. **Просмотр логов в реальном времени:**
+   ```bash
+   ssh root@<ROBOT_IP> "tail -f /tmp/log/custom/tgbot.log"
+   ```
+
+2. **Ожидаемый вывод логов:**
+   ```text
+   [...] supervisor[...]: Supervisor started (PID ...)
+   [...] supervisor[...]: System clock ready
+   [...] supervisor[...]: Valetudo is ready after 0s
+   [...] supervisor[...]: Starting tgbot...
+   [...] Бот запущен. Слушаю входящие обновления Telegram...
+   ```
+
+3. **Результат в Telegram:**
+   Откройте диалог с вашим ботом в Telegram и отправьте команду `/start` — бот мгновенно ответит интерактивным дашбордом управления роботом.
+
+---
+
 ## 📁 Архитектура проекта
 
 Кодовая база структурирована в соответствии с принципами **Clean Architecture** и **SOLID**:
@@ -118,36 +218,11 @@
 
 ---
 
-## 🛠 Сборка и деплой
+## 🛠 Разработка и тестирование
 
-### 1. Автоматический деплой на робот (PowerShell)
+### 1. Локальная сборка для разработки
 
-В корне проекта предусмотрен скрипт [`deploy.ps1`](deploy.ps1):
-```powershell
-.\deploy.ps1 -RobotIP "192.168.1.91" -RobotUser "root"
-```
-
-Скрипт автоматически:
-1. Компилирует бинарник под целевую архитектуру `linux/arm64` с флагами оптимизации размера `-ldflags="-s -w"`.
-2. Останавливает запущенный процесс супервизора на роботе.
-3. Копирует бинарник `tgbot` и супервизор `run.sh` в `/data/tgbot/`.
-4. Запускает супервизор в фоне.
-
-### 2. Ручная кросс-компиляция (Linux ARM64)
-
-**Windows (PowerShell):**
-```powershell
-$env:GOOS = "linux"; $env:GOARCH = "arm64"; $env:CGO_ENABLED = "0"
-go build -ldflags="-s -w" -o tgbot ./cmd/bot
-```
-
-**Linux / macOS (Bash):**
-```bash
-GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o tgbot ./cmd/bot
-```
-
-### 3. Локальная сборка для разработки
-
+Сборка бинарника для локального запуска на хосте разработки:
 ```bash
 go build -o tgbot ./cmd/bot
 ```
@@ -157,7 +232,7 @@ go build -o tgbot ./cmd/bot
 go test -v ./...
 ```
 
-### 4. Сборка Docker-контейнера
+### 2. Сборка Docker-контейнера
 
 ```bash
 docker build -t valetudo-tgbot .
