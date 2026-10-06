@@ -1,74 +1,80 @@
 # 🤖 Valetudo Telegram Bot
 
-Легковесный, автономный Telegram-бот на Go для управления роботом-пылесосом с прошивкой [Valetudo v2](https://valetudo.cloud/) через локальный REST API. Протестировано на Dreame X30 Pro (поддерживаются и любые другие совместимые роботы Dreame, Roborock и др. под управлением Valetudo).
+**English** | [Русский](README.ru.md)
 
-Бот написан на стандартной библиотеке Go без внешних runtime-зависимостей и компилируется в **один компактный статический бинарник (~6 МБ)**. Высоко оптимизирован по ресурсам: в среднем потребляет всего **~12 МБ оперативной памяти**, поэтому идеально подходит для постоянной работы прямо на встроенной Linux-системе робота (`/data/tgbot`), домашнем роутере (OpenWrt) или сервере.
+[![Vibe](https://img.shields.io/badge/vibecoded-with%20love-ff69b4.svg)](https://github.com/melil/valetudo-telegram-bot)
+[![Go Version](https://img.shields.io/github/go-mod/v/melil/valetudo-telegram-bot)](https://github.com/melil/valetudo-telegram-bot)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
----
+A lightweight, standalone Go Telegram bot for controlling vacuum robots running [Valetudo v2](https://valetudo.cloud/) via its local REST API. Tested on Dreame X30 Pro (also supports other Valetudo-compatible Dreame, Roborock, and similar models).
 
-## 🚀 Возможности
-
-- 🪄 **Мастер уборки (Wizard) и Быстрая уборка**:
-  - Быстрый запуск стандартной генеральной уборки в один клик прямо с главного дашборда (`/clean`).
-  - Интерактивный пошаговый мастер уборки по комнатам (`/wizard`): выбор режима (сухая, влажная, комбо, сначала сухая затем влажная).
-  - Динамическая загрузка комнат с карты с поддержкой пользовательских алиасов (`ROOM_ALIASES`).
-  - Выбор комнат кнопками-чекбоксами (выбрать все / сбросить) и настройка количества проходов (1x, 2x, 3x, 4x).
-- 📖 **Справка по командам (`/help`)**:
-  - Полный структурированный список всех текстовых команд бота с разделением на пользовательские и административные функции.
-- 🏠 **Управление станцией самоочистки**:
-  - Выгрузка пыли из пылесборника робота в мешок станции.
-  - Стирка моющих швабр на станции.
-  - Старт и принудительная остановка сушки швабр горячим воздухом.
-  - Настройка температуры стирки и длительности сушки швабр.
-  - Отправка робота на базу (`/home`).
-- 👥 **Многопользовательский доступ и роли (RBAC)**:
-  - Защита от несанкционированного доступа. При первом входе бот запрашивает одобрение администратора.
-  - Инлайн-кнопки одобрения (`Approve`) и отклонения (`Reject`) для администраторов.
-  - Меню управления пользователями (`/users`) с возможностью отзыва доступа.
-  - Журнал аудита действий пользователей (`/audit`).
-  - Персональные настройки языка интерфейса и подписок на уведомления (ошибки, отчёты, станция).
-- 🧹 **Мониторинг расходников**:
-  - Точный расчёт остаточного ресурса основных и боковых щёток, HEPA-фильтра, датчиков и швабр.
-  - Графические прогресс-бары в тексте сообщений.
-  - Кнопки мгновенного сброса ресурса после замены или очистки расходника.
-- 📊 **Системные ресурсы и мониторинг железа (`/resources`)**:
-  - **Процесс бота**: аллокация кучи (Heap Alloc/Sys), количество горутин, число вызовов GC и длительность пауз, аптайм бота, версия Go и архитектура.
-  - **Хост робота (Linux)**: загрузка ОЗУ (`/proc/meminfo`), Load Average процессора (`/proc/loadavg`), свободное место на дисках (`/data` и `/`), температура процессора/SoC (`/sys/class/thermal`) и аптайм ОС (`/proc/uptime`).
-- 🏎 **Бортовой журнал и телеметрия (`/stats`)**:
-  - Детальный статус силовой установки, заряд аккумулятора.
-  - Состояние баков чистой и грязной воды, картриджа моющего средства и мешка для пыли.
-  - Статистика последней и суммарной истории уборок (часы, площадь, запуски).
-- 📡 **Автономный фоновый вотчер (`WatcherService`)**:
-  - Моментальные пуш-уведомления при ошибках с расшифровкой кода.
-  - Предупреждения при низком уровне чистой воды или переполнении бака для грязной воды.
-  - Автоматическое формирование подробного отчёта по завершении сессии уборки (затраченное время, убранная площадь, расход заряда батареи, список комнат) с отправкой PNG-карты помещения.
-- 📱 **Интеллектуальный интерфейс одного сообщения**:
-  - Единый интерактивный дашборд с контекстными кнопками под текущий статус робота.
-  - Автоматическое удаление служебных команд пользователя и восстановление дашборда при очистке истории чата.
-- 🌙 **Режим DND (Не беспокоить)**: Автоматическое отключение звука уведомлений в ночные часы.
-- 🛡 **Надёжность**: Graceful Shutdown (`SIGINT`, `SIGTERM`), встроенный супервизор с защитой от сбоя синхронизации времени при старте и защитой от дублирования процессов.
+Built entirely with the Go standard library without external runtime dependencies, compiling into a **single compact static binary (~6 MB)**. Highly resource-efficient, averaging just **~12 MB of RAM usage**, making it ideal for running directly on the robot's embedded Linux system (`/data/tgbot`), a home router (OpenWrt), or a server.
 
 ---
 
-## ⚡️ Быстрый старт (Quick Start)
+## 🚀 Features
 
-### 🤖 Прямо на роботе (через SSH) или Linux / macOS
+- 🪄 **Cleaning Wizard & Quick Clean**:
+  - One-tap quick start for standard full cleaning directly from the main dashboard (`/clean`).
+  - Interactive step-by-step room cleaning wizard (`/wizard`): mode selection (vacuum, mop, combo, vacuum then mop).
+  - Dynamic room discovery from the current map with custom aliases support (`ROOM_ALIASES`).
+  - Room selection with toggle buttons (select all / deselect all) and pass count configuration (1x, 2x, 3x, 4x).
+- 📖 **Command Help (`/help`)**:
+  - Comprehensive, structured list of all bot text commands, categorized into user and administrator functions.
+- 🏠 **Auto-Empty Dock & Station Control**:
+  - Trigger dustbin emptying into the station dust bag.
+  - Start mop washing at the dock.
+  - Start and stop hot-air mop drying.
+  - Configure washing water temperature and drying duration.
+  - Return robot to dock (`/home`).
+- 👥 **Multi-User Access & Role-Based Access Control (RBAC)**:
+  - Protection against unauthorized access. First-time users require admin approval.
+  - Inline `Approve` and `Reject` buttons for administrators.
+  - User management menu (`/users`) with access revocation.
+  - Comprehensive audit log of user actions (`/audit`).
+  - Per-user preferences for language and notification subscriptions (errors, reports, station).
+- 🧹 **Consumables Monitoring**:
+  - Accurate remaining lifetime tracking for main/side brushes, HEPA filter, sensors, and mops.
+  - Text-based graphical progress bars.
+  - Instant consumable reset buttons after replacement or cleaning.
+- 📊 **System Resources & Hardware Monitoring (`/resources`)**:
+  - **Bot Process**: heap allocation (Heap Alloc/Sys), goroutine count, GC pause durations & cycle counts, bot uptime, Go version, and architecture.
+  - **Robot Host (Linux)**: RAM usage (`/proc/meminfo`), CPU load averages (`/proc/loadavg`), disk usage (`/data` and `/`), CPU/SoC thermal sensors (`/sys/class/thermal`), and OS uptime (`/proc/uptime`).
+- 🏎 **Telemetry & Logbook (`/stats`)**:
+  - Detailed powertrain state, battery percentage.
+  - Fresh and dirty water tank statuses, detergent cartridge, and dust bag state.
+  - Statistics for the last session and lifetime cleaning history (hours, area, total runs).
+- 📡 **Autonomous Background Watcher (`WatcherService`)**:
+  - Instant push notifications on errors with localized description.
+  - Warnings for low clean water or full dirty water tank.
+  - Automatic generation of detailed post-cleaning session reports (elapsed time, cleaned area, battery consumption, visited rooms) accompanied by a rendered PNG floor map.
+- 📱 **Single-Message Smart Dashboard**:
+  - Single interactive dashboard message with contextual buttons reflecting current robot state.
+  - Auto-cleanup of user command messages and automatic dashboard recreation on chat clear.
+- 🌙 **DND (Do Not Disturb) Mode**: Automatic notification muting during night hours.
+- 🛡 **Reliability**: Graceful Shutdown (`SIGINT`, `SIGTERM`), built-in process supervisor with time synchronization guard against cold-boot clock skew, and PID locking preventing duplicate instances.
+
+---
+
+## ⚡️ Quick Start
+
+### 🤖 Directly on the Robot (via SSH) or Linux / macOS
 
 > [!NOTE]
-> На роботах с Valetudo (Dreame, Roborock и др.) установлена легковесная система на базе BusyBox, где в качестве командной оболочки доступен **`/bin/sh`**, а не `bash`. Онлайн-установщик `install.sh` написан на чистом POSIX `sh` и автоматически поддерживает как `curl`, так и `wget`.
+> Valetudo robots (Dreame, Roborock, etc.) run a lightweight BusyBox-based Linux environment providing **`/bin/sh`** rather than `bash`. The `install.sh` web installer is written in pure POSIX `sh` and automatically supports both `curl` and `wget`.
 
-**Установка последней версии (в одну команду):**
+**Install latest version (one-liner):**
 ```sh
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
 ```
 
-**Либо через скачивание скрипта:**
+**Or download the script first:**
 ```sh
 wget -qO /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh
 sh /tmp/install.sh
 ```
 
-**Установка конкретной версии (например, `1.0.13`):**
+**Install a specific version (e.g. `1.0.13`):**
 ```sh
 wget -qO /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh
 sh /tmp/install.sh 1.0.13
@@ -78,54 +84,54 @@ sh /tmp/install.sh 1.0.13
 
 ### 🪟 Windows (PowerShell)
 
-Установка последней версии прямо с вашего компьютера:
+Install the latest version directly from your computer:
 ```powershell
 irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
 ```
 
-Установка конкретной версии (например, `1.0.13`):
+Install a specific version (e.g. `1.0.13`):
 ```powershell
 $Version="1.0.13"; irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
 ```
 
 ---
 
-### Шаги мастера в терминале:
-1. 🌍 **Выбор языка мастера** (`1` — Русский, `2` — English, `3` — Deutsch, `4` — 简体中文).
-2. 🌐 **IP-адрес робота** (при запуске с Windows/ПК) для подключения по SSH.
-3. 🤖 **Токен бота** от [@BotFather](https://t.me/BotFather).
-4. 🆔 **Ваш Telegram ID** от [@userinfobot](https://t.me/userinfobot).
-5. 🚀 **Автозагрузка** при включении робота (`[Y/n]`, по умолчанию `Y`).
+### Terminal Wizard Steps:
+1. 🌍 **Wizard language** (`1` — Русский, `2` — English, `3` — Deutsch, `4` — 简体中文).
+2. 🌐 **Robot IP address** (when running from PC) for SSH connection.
+3. 🤖 **Bot token** from [@BotFather](https://t.me/BotFather).
+4. 🆔 **Your Telegram ID** from [@userinfobot](https://t.me/userinfobot).
+5. 🚀 **Autostart** on robot boot (`[Y/n]`, default: `Y`).
 
 > [!TIP]
-> Мастер автоматически скачает оптимизированный бинарник `tgbot` для ARM64 из GitHub Releases, скрипт супервизора `run.sh`, создаст конфигурацию `/data/tgbot/.env`, настроит права, пропишет автозагрузку (`/data/_root.sh`) и запустит службу бота в фоне.
+> The installer automatically fetches the precompiled ARM64 binary from GitHub Releases, sets up the `run.sh` supervisor, creates `/data/tgbot/.env`, sets file permissions, enables autostart via `/data/_root.sh`, and launches the bot service in the background.
 
 ---
 
-### Проверка работы:
-- Откройте бота в Telegram и отправьте команду `/start` — появится интерактивный дашборд управления роботом.
-- Просмотр логов работы бота на роботе в реальном времени:
+### Verifying Installation:
+- Open the bot in Telegram and send `/start` — the interactive control dashboard will appear.
+- View live logs on the robot in real time:
   ```bash
-  ssh root@<IP_РОБОТА> "tail -f /tmp/log/custom/tgbot.log"
+  ssh root@<ROBOT_IP> "tail -f /tmp/log/custom/tgbot.log"
   ```
 
 <details>
-<summary>🛠 Альтернативные способы установки (с компьютера или локальная сборка)</summary>
+<summary>🛠 Alternative installation methods (from PC or local build)</summary>
 
-**Установка с локального компьютера (интерактивные мастера с компиляцией):**
+**Installation from local computer (interactive build & deploy wizard):**
 - **macOS / Linux / Git Bash:** `./start.sh`
 - **Windows (PowerShell):** `.\start.ps1`
 
-**Ручная компиляция и деплой на робота:**
-1. Кросс-компиляция на ПК:
+**Manual cross-compilation and deployment to the robot:**
+1. Cross-compile on PC:
    ```bash
    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o tgbot ./cmd/bot
    ```
-2. Создание каталога и файла `.env` на роботе:
+2. Create directory and `.env` file on the robot:
    ```bash
    ssh root@<ROBOT_IP> "mkdir -p /data/tgbot && printf 'BOT_TOKEN=%s\nCHAT_ID=%s\n' '<YOUR_BOT_TOKEN>' '<YOUR_TELEGRAM_ID>' > /data/tgbot/.env"
    ```
-3. Копирование файлов и запуск:
+3. Copy files and launch:
    ```bash
    scp tgbot run.sh root@<ROBOT_IP>:/data/tgbot/
    ssh root@<ROBOT_IP> "chmod +x /data/tgbot/tgbot /data/tgbot/run.sh && nohup /data/tgbot/run.sh >/dev/null 2>&1 &"
@@ -134,96 +140,96 @@ $Version="1.0.13"; irm https://raw.githubusercontent.com/melil/valetudo-telegram
 
 ---
 
-## 📁 Структура проекта
+## 📁 Project Structure
 
-Кодовая база логически разделена на независимые слои и специализированные сервисы:
+The codebase is logically organized into decoupled layers and dedicated services:
 
 ```text
 .
 ├── cmd/
 │   └── bot/
-│       └── main.go                  # Точка входа приложения, инициализация и Graceful Shutdown
+│       └── main.go                  # Application entry point, initialization & Graceful Shutdown
 │
 ├── internal/
 │   ├── bot/
-│   │   ├── domain/                  # Слой сущностей и портов (Entities & Ports)
-│   │   │   ├── models.go            # Бизнес-модели (CleaningSession, Report, RoomInfo, HostStats)
-│   │   │   └── ports.go             # Интерфейсы зависимостей (RobotClient, Messenger, UserRepository)
+│   │   ├── domain/                  # Entities & Ports layer
+│   │   │   ├── models.go            # Domain models (CleaningSession, Report, RoomInfo, HostStats)
+│   │   │   └── ports.go             # Dependency interfaces (RobotClient, Messenger, UserRepository)
 │   │   │
-│   │   ├── service/                 # Слой Use Cases / Бизнес-логики (Single Responsibility)
-│   │   │   ├── auth/                # Проверка прав, одобрение доступа, роли пользователей
-│   │   │   ├── cleaning/            # Машина состояний визарда сегментной уборки комнат
-│   │   │   ├── consumables/         # Расчёт износа расходников и обработка сброса
-│   │   │   ├── session/             # Отслеживание сессий уборки и формирование отчётов
-│   │   │   ├── system/              # Сбор метрик ОС Linux и рантайма Go
-│   │   │   ├── update/              # Проверка релизов GitHub, скачивание и самообновление
-│   │   │   └── watcher/             # Фоновый цикл мониторинга и отправки алертов
+│   │   ├── service/                 # Use Cases & Business logic layer (Single Responsibility)
+│   │   │   ├── auth/                # Permissions, access approval, user roles
+│   │   │   ├── cleaning/            # State machine for segmented room cleaning wizard
+│   │   │   ├── consumables/         # Consumable wear calculation & reset handling
+│   │   │   ├── session/             # Cleaning session tracking & report generation
+│   │   │   ├── system/              # Linux OS metrics & Go runtime telemetry
+│   │   │   ├── update/              # GitHub release checks, download & self-updating
+│   │   │   └── watcher/             # Background polling loop & alert dispatcher
 │   │   │
-│   │   ├── delivery/                # Слой адаптеров представления (Presentation / Delivery)
+│   │   ├── delivery/                # Presentation / Delivery adapters layer
 │   │   │   └── telegram/
-│   │   │       ├── formatters.go    # Шаблоны сообщений, прогресс-бары и форматирование данных
-│   │   │       ├── menus.go         # Генераторы инлайн и reply клавиатур
-│   │   │       └── handler.go       # Маршрутизатор команд и callback-запросов Telegram
+│   │   │       ├── formatters.go    # Message templates, progress bars & data formatting
+│   │   │       ├── menus.go         # Inline & reply keyboard generators
+│   │   │       └── handler.go       # Telegram command router & callback query handler
 │   │   │
-│   │   └── bot.go                   # Точка сборки зависимостей (Composition Root & Facade)
+│   └── bot.go                       # Dependency injection container (Composition Root & Facade)
 │   │
-│   ├── database/                    # Хранилище данных (SQLite, миграции, метаданные, журнал)
-│   ├── config/                      # Загрузка и валидация конфигурации из переменных окружения
-│   ├── i18n/                        # Встроенная мультиязычность (ru, en, de, zh) через go:embed
-│   ├── telegram/                    # Легковесный HTTP-клиент Telegram Bot API
-│   ├── valetudo/                    # HTTP-клиент локального REST API Valetudo
-│   └── version/                     # Версионирование бота и SemVer-парсер
+│   ├── database/                    # Data storage (SQLite, migrations, metadata, audit log)
+│   ├── config/                      # Environment configuration loading & validation
+│   ├── i18n/                        # Embedded multi-language support (ru, en, de, zh) via go:embed
+│   ├── telegram/                    # Lightweight Telegram Bot API HTTP client
+│   ├── valetudo/                    # Valetudo local REST API HTTP client
+│   └── version/                     # Bot versioning & SemVer parser
 │
-├── .github/workflows/               # Автоматическая сборка релизов при пуше тэгов
+├── .github/workflows/               # Automated CI release builds on tag push
 │   └── release.yml
-├── install.sh                       # Онлайн-установщик в одну команду (Linux/macOS/SSH на роботе: sh)
-├── install.ps1                      # Онлайн-установщик в одну команду (Windows: irm | iex)
-├── start.sh                         # Интерактивный мастер локальной сборки (macOS/Linux/Bash)
-├── start.ps1                        # Интерактивный мастер локальной сборки (Windows PowerShell)
-├── deploy.ps1                       # Скрипт прямого деплоя на робота по SSH/SCP
-├── run.sh                           # Скрипт супервизора процесса для робота
-├── Dockerfile                       # Многоэтапный Docker-образ
+├── install.sh                       # One-liner web installer (Linux/macOS/Robot SSH: sh)
+├── install.ps1                      # One-liner web installer (Windows: irm | iex)
+├── start.sh                         # Interactive local build & deploy wizard (macOS/Linux/Bash)
+├── start.ps1                        # Interactive local build & deploy wizard (Windows PowerShell)
+├── deploy.ps1                       # Direct SSH/SCP deployment script
+├── run.sh                           # Process supervisor script for the robot
+├── Dockerfile                       # Multi-stage Docker build
 └── go.mod
 ```
 
 ---
 
-## ⚙️ Переменные окружения
+## ⚙️ Environment Variables
 
-| Переменная | Обязательная | По умолчанию | Описание |
+| Variable | Required | Default | Description |
 |---|---|---|---|
-| `BOT_TOKEN` | **Да** | — | Токен Telegram-бота от `@BotFather` |
-| `CHAT_ID` | **Да** | — | ID чата главного администратора |
-| `DB_PATH` | Нет | `/data/tgbot/bot.db` или `bot.db` | Путь к базе данных SQLite (пользователи, аудит, настройки, метаданные) |
-| `BOT_LANG` | Нет | `ru` | Язык интерфейса по умолчанию (`ru`, `en`, `de`, `zh`) |
-| `VALETUDO_BASE_URL` | Нет | `http://127.0.0.1/api/v2/robot` | Базовый URL API Valetudo |
-| `TG_API_BASE` | Нет | `https://api.telegram.org` | URL Telegram API (или локальный Telegram Bot API сервер) |
-| `DND_ENABLED` | Нет | `true` | Включен ли ночной тихий режим |
-| `DND_START_HOUR` | Нет | `23` | Час начала тихого режима (0–23) |
-| `DND_END_HOUR` | Нет | `8` | Час окончания тихого режима (0–23) |
-| `ROOM_ALIASES` | Нет | `{}` | JSON-словарь алиасов комнат (например, `{"10":"Гостиная","2":"Кухня"}`) |
-| `GITHUB_REPO` | Нет | `melil/valetudo-telegram-bot` | Репозиторий GitHub для проверки релизов и скачивания обновлений |
-| `GITHUB_TOKEN` | Нет | — | Персональный токен GitHub (опционально, для приватных репо или снятия rate limits) |
-| `UPDATE_CHECK_INTERVAL` | Нет | `6h` | Интервал автоматической фоновой проверки обновлений |
-| `AUTO_UPDATE_NOTIFY` | Нет | `true` | Включить автоматические уведомления администраторам при выходе новой версии |
+| `BOT_TOKEN` | **Yes** | — | Telegram Bot token from `@BotFather` |
+| `CHAT_ID` | **Yes** | — | Telegram chat ID of the primary administrator |
+| `DB_PATH` | No | `/data/tgbot/bot.db` or `bot.db` | Path to SQLite database file (users, audit, settings, metadata) |
+| `BOT_LANG` | No | `ru` | Default interface language (`ru`, `en`, `de`, `zh`) |
+| `VALETUDO_BASE_URL` | No | `http://127.0.0.1/api/v2/robot` | Base URL of Valetudo REST API |
+| `TG_API_BASE` | No | `https://api.telegram.org` | Telegram Bot API base URL (or custom local Bot API server) |
+| `DND_ENABLED` | No | `true` | Enable nocturnal Do Not Disturb (silent) mode |
+| `DND_START_HOUR` | No | `23` | DND start hour (0–23) |
+| `DND_END_HOUR` | No | `8` | DND end hour (0–23) |
+| `ROOM_ALIASES` | No | `{}` | JSON dictionary of custom room names (e.g. `{"10":"Living Room","2":"Kitchen"}`) |
+| `GITHUB_REPO` | No | `melil/valetudo-telegram-bot` | Target GitHub repository for release checks and updates |
+| `GITHUB_TOKEN` | No | — | GitHub Personal Access Token (optional, for private repos or rate limit relief) |
+| `UPDATE_CHECK_INTERVAL` | No | `6h` | Background check interval for new releases |
+| `AUTO_UPDATE_NOTIFY` | No | `true` | Automatically notify admins when a new update is available |
 
 ---
 
-## 🛠 Разработка и тестирование
+## 🛠 Development & Testing
 
-### 1. Локальная сборка для разработки
+### 1. Local Development Build
 
-Сборка бинарника для локального запуска на хосте разработки:
+Build the binary for running locally on your development machine:
 ```bash
 go build -o tgbot ./cmd/bot
 ```
 
-Запуск всех модульных и интеграционных тестов:
+Run all unit and integration tests:
 ```bash
 go test -v ./...
 ```
 
-### 2. Сборка Docker-контейнера
+### 2. Docker Container Build
 
 ```bash
 docker build -t valetudo-tgbot .
@@ -231,9 +237,9 @@ docker build -t valetudo-tgbot .
 
 ---
 
-## 📦 Запуск на роботе через Supervisor (`run.sh`)
+## 📦 Running on the Robot via Supervisor (`run.sh`)
 
-На роботе создайте файл окружения `/data/tgbot/.env`:
+On the robot, create the environment file `/data/tgbot/.env`:
 ```env
 BOT_TOKEN=123456789:ABCdef...
 CHAT_ID=123456789
@@ -243,41 +249,41 @@ BOT_LANG=ru
 DND_ENABLED=true
 ```
 
-Супервизор [`run.sh`](run.sh) обеспечивает:
-- Защиту от запуска дубликатов (PID-файл в `/var/run/tgbot_run.pid`).
-- Ожидание синхронизации системных часов (`year >= 2024`), предотвращая сбои TLS-сертификатов Telegram при холодной загрузке робота.
-- Автоматический перезапуск бота при сбоях.
-- Ротацию логов в `/tmp/log/custom/tgbot.log`.
+The [`run.sh`](run.sh) supervisor ensures:
+- Duplicate process prevention (PID lockfile in `/var/run/tgbot_run.pid`).
+- Clock synchronization guard (`year >= 2024`), preventing Telegram TLS handshake failures on cold robot reboots.
+- Automatic bot process restart on crashes or unexpected exits.
+- Log rotation in `/tmp/log/custom/tgbot.log`.
 
-Просмотр логов работы бота на роботе:
+Viewing bot logs on the robot:
 ```bash
-ssh root@<ip-робота> "tail -f /tmp/log/custom/tgbot.log"
+ssh root@<ROBOT_IP> "tail -f /tmp/log/custom/tgbot.log"
 ```
 
 ---
 
-## 🔄 Версионирование и автообновление (OTA)
+## 🔄 Versioning & Over-The-Air (OTA) Updates
 
-Бот поддерживает автоматический цикл версионирования, релизов и OTA-обновления прямо через Telegram:
+The bot supports an automated versioning, release, and OTA update cycle directly through Telegram:
 
-### 1. Выпуск новой версии
-Создайте и отправьте git-тэг в репозиторий:
+### 1. Publishing a New Release
+Create and push a git tag to the repository:
 ```bash
 git tag 1.0.1
 git push origin 1.0.1
 ```
-Workflow GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)):
-1. Скомпилирует бинарник `tgbot` под `linux/arm64` с вшиванием номера версии через `-ldflags`.
-2. Автоматически создаст GitHub Release с прикреплённым бинарником и списком изменений.
+The GitHub Actions workflow ([`.github/workflows/release.yml`](.github/workflows/release.yml)) will:
+1. Compile the `tgbot` binary for `linux/arm64`, embedding the version string via `-ldflags`.
+2. Automatically create a GitHub Release with the attached binary and release notes.
 
-### 2. Получение обновлений ботом
-- **Автоматически**: Бот каждые 6 часов опрашивает GitHub API. При выходе новой версии администраторам приходит сообщение с кнопками:
-  - `[ 🚀 Обновить ]` — бот скачивает бинарник, атомарно заменяет текущий файл `/data/tgbot/tgbot` и перезапускается через супервизор `run.sh`. После старта бот присылает подтверждение об успешном запуске новой версии.
-  - `[ ⏳ Позже ]` — откладывает напоминание о данной версии.
-- **Вручную через меню**: В Telegram перейдите в **«🤖 Робот»** → **«🤖 Настройки бота»** → **«🔄 Обновления»** (или отправьте команду `/update`), где бот проверит статус и предложит обновление либо сообщит, что установлена актуальная версия.
+### 2. Receiving Updates in the Bot
+- **Automatically**: The bot checks the GitHub API every 6 hours. When a new version is released, admins receive a message with interactive buttons:
+  - `[ 🚀 Update ]` — Downloads the binary, atomically replaces `/data/tgbot/tgbot`, and restarts via the `run.sh` supervisor. Once started, the bot sends a confirmation of successful launch.
+  - `[ ⏳ Later ]` — Postpones the notification for this release.
+- **Manually via Menu**: In Telegram, navigate to **«🤖 Robot»** → **«🤖 Bot Settings»** → **«🔄 Updates»** (or send `/update`), where the bot checks for new releases and offers one-click installation.
 
 ---
 
-## 📄 Лицензия
+## 📄 License
 
 MIT License.
