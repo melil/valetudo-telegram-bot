@@ -13,7 +13,7 @@ Ausschließlich mit der Go-Standardbibliothek ohne externe Laufzeitabhängigkeit
 ---
 
 <p align="center">
-  <img src="demo/de.gif" width="400px" alt="Demo">
+  <img src="demo/de.gif" width="400px" autoplay loop muted playsinline alt="Demo">
 </p>
 
 ---
