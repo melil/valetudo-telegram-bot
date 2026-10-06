@@ -24,7 +24,7 @@ Ausschließlich mit der Go-Standardbibliothek ohne externe Laufzeitabhängigkeit
 - 🏠 **Absaugstation- & Dock-Steuerung**:
   - Staubbehälterentleerung in den Stationsbeutel auslösen.
   - Moppwäsche an der Station starten.
-  - Heißlufttrocknung der Mopps starten und stoppen.
+  - Heißlufttrocknung der Wischpads starten und stoppen.
   - Wassertemperatur beim Waschen und Trocknungsdauer konfigurieren.
   - Roboter zur Basis zurücksenden (`/home`).
 - 👥 **Mehrbenutzerzugriff & Rollenverwaltung (RBAC)**:
@@ -34,7 +34,7 @@ Ausschließlich mit der Go-Standardbibliothek ohne externe Laufzeitabhängigkeit
   - Vollständiges Audit-Protokoll aller Benutzeraktionen (`/audit`).
   - Individuelle Spracheinstellungen und Benachrichtigungsabonnements (Fehler, Berichte, Station).
 - 🧹 **Verschleißüberwachung**:
-  - Präzise Berechnung der Restlebensdauer für Haupt- und Seitenbürsten, HEPA-Filter, Sensoren und Mopps.
+  - Präzise Berechnung der Restlebensdauer für Haupt- und Seitenbürsten, HEPA-Filter, Sensoren und Wischpads.
   - Textbasierte grafische Fortschrittsbalken.
   - Sofortige Reset-Buttons nach Austausch oder Reinigung.
 - 📊 **Systemressourcen & Hardware-Monitoring (`/resources`)**:
