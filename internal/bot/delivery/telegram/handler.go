@@ -156,8 +156,12 @@ func (h *Handler) HandleTextCommand(msg *telegram.Message) {
 			h.showNotSupported(chatID)
 			return
 		}
-		_ = h.val.TriggerAction("stop")
-		h.facade.SetRobotStatus("idle", "none")
+		if err := h.val.TriggerAction("home"); err != nil {
+			_ = h.val.TriggerAction("stop")
+			h.facade.SetRobotStatus("idle", "none")
+		} else {
+			h.facade.SetRobotStatus("returning", "none")
+		}
 		h.logAction(chatID, "stop_cleaning", "")
 		h.SendMainDashboard(chatID)
 
@@ -713,8 +717,12 @@ func (h *Handler) HandleCallback(cb *telegram.CallbackQuery) {
 
 	case data == "cmd_stop":
 		_ = h.tg.AnswerCallbackQuery(cb.ID)
-		_ = h.val.TriggerAction("stop")
-		h.facade.SetRobotStatus("idle", "none")
+		if err := h.val.TriggerAction("home"); err != nil {
+			_ = h.val.TriggerAction("stop")
+			h.facade.SetRobotStatus("idle", "none")
+		} else {
+			h.facade.SetRobotStatus("returning", "none")
+		}
 		h.logAction(chatID, "stop_cleaning", "")
 		h.SendMainDashboard(chatID)
 
