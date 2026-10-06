@@ -1,9 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # ==============================================================================
 #  🤖 Valetudo Telegram Bot — Интерактивный онлайн-установщик (Installer)
 #  Использование:
-#    bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)
-#    bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh) 1.0.10
+#    sh -c "$(curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
+#    curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh && sh /tmp/install.sh 1.0.11
 # ==============================================================================
 
 set -e
@@ -30,17 +30,23 @@ fi
 # ------------------------------------------------------------------------------
 if [ ! -d "/data" ] && [ "$(uname -s)" != "Linux" ]; then
     echo -e "${YELLOW}Похоже, скрипт запущен на ПК/ноутбуке, а не прямо на роботе.${NC}"
-    read -rp "Подключиться к роботу по SSH и запустить установку там? [Y/n]: " RUN_SSH </dev/tty
+    printf "%s" "Подключиться к роботу по SSH и запустить установку там? [Y/n]: "
+    read -r RUN_SSH </dev/tty
     RUN_SSH=${RUN_SSH:-Y}
-    if [[ "$RUN_SSH" =~ ^[Yy]$ ]]; then
-        read -rp "Введите IP-адрес робота [192.168.1.91]: " R_IP </dev/tty
-        R_IP=${R_IP:-192.168.1.91}
-        read -rp "SSH-пользователь [root]: " R_USER </dev/tty
-        R_USER=${R_USER:-root}
-        echo -e "${CYAN}Подключение к ${R_USER}@${R_IP} и запуск установки...${NC}"
-        ssh -t "${R_USER}@${R_IP}" "bash <(curl -Ls https://raw.githubusercontent.com/${REPO}/main/install.sh) ${TARGET_VER}"
-        exit 0
-    fi
+    case "$RUN_SSH" in
+        [Nn]*) ;;
+        *)
+            printf "%s" "Введите IP-адрес робота [192.168.1.91]: "
+            read -r R_IP </dev/tty
+            R_IP=${R_IP:-192.168.1.91}
+            printf "%s" "SSH-пользователь [root]: "
+            read -r R_USER </dev/tty
+            R_USER=${R_USER:-root}
+            echo -e "${CYAN}Подключение к ${R_USER}@${R_IP} и запуск установки...${NC}"
+            ssh -t "${R_USER}@${R_IP}" "curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh -o /tmp/install.sh 2>/dev/null || wget -qO /tmp/install.sh https://raw.githubusercontent.com/${REPO}/main/install.sh; sh /tmp/install.sh ${TARGET_VER}; rm -f /tmp/install.sh"
+            exit 0
+            ;;
+    esac
 fi
 
 # ------------------------------------------------------------------------------
@@ -54,7 +60,8 @@ echo "  2) English"
 echo "  3) Deutsch (German)"
 echo "  4) 简体中文 (Chinese)"
 echo ""
-read -rp "👉 Выбор / Choice [1-4, Default: 1]: " LANG_CHOICE </dev/tty
+printf "%s" "👉 Выбор / Choice [1-4, Default: 1]: "
+read -r LANG_CHOICE </dev/tty
 
 case "$LANG_CHOICE" in
     2) LANG_CODE="en" ;;
@@ -170,7 +177,8 @@ echo -e "${T_INTRO}"
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}${BOLD}${T_STEP1}${NC}"
 while true; do
-    read -rp "$T_PROMPT_TOKEN" BOT_TOKEN </dev/tty
+    printf "%s" "$T_PROMPT_TOKEN"
+    read -r BOT_TOKEN </dev/tty
     if [ -n "$BOT_TOKEN" ]; then
         break
     fi
@@ -178,7 +186,8 @@ while true; do
 done
 
 while true; do
-    read -rp "$T_PROMPT_CHAT" CHAT_ID </dev/tty
+    printf "%s" "$T_PROMPT_CHAT"
+    read -r CHAT_ID </dev/tty
     if [ -n "$CHAT_ID" ]; then
         break
     fi
@@ -190,10 +199,12 @@ echo ""
 # Шаг 2: Дополнительные опции
 # ------------------------------------------------------------------------------
 echo -e "${YELLOW}${BOLD}${T_STEP2}${NC}"
-read -rp "$T_PROMPT_LANG" BOT_LANG </dev/tty
+printf "%s" "$T_PROMPT_LANG"
+read -r BOT_LANG </dev/tty
 BOT_LANG=${BOT_LANG:-$DEFAULT_BOT_LANG}
 
-read -rp "$T_PROMPT_AUTO" AUTOSTART </dev/tty
+printf "%s" "$T_PROMPT_AUTO"
+read -r AUTOSTART </dev/tty
 AUTOSTART=${AUTOSTART:-Y}
 echo ""
 
@@ -230,10 +241,13 @@ fi
 
 if ! download "$BIN_URL" "tgbot"; then
     # Попытка с префиксом v если без него не вышло
-    if [ "$TARGET_VER" != "latest" ] && [[ "$TARGET_VER" != v* ]]; then
-        BIN_URL="https://github.com/${REPO}/releases/download/v${TARGET_VER}/tgbot"
-        download "$BIN_URL" "tgbot" || true
-    fi
+    case "$TARGET_VER" in
+        latest|v*) ;;
+        *)
+            BIN_URL="https://github.com/${REPO}/releases/download/v${TARGET_VER}/tgbot"
+            download "$BIN_URL" "tgbot" || true
+            ;;
+    esac
 fi
 
 if [ ! -s "tgbot" ]; then
@@ -274,12 +288,15 @@ rm -f /var/run/tgbot_run.pid /tmp/tgbot.alive
 chmod +x "$INSTALL_DIR/tgbot" "$INSTALL_DIR/run.sh"
 
 # Автозагрузка
-if [[ "$AUTOSTART" =~ ^[Yy]$ ]]; then
-    echo -e "  ${T_CONFIG_AUTO}"
-    grep -q "$INSTALL_DIR/run.sh" /data/_root.sh 2>/dev/null || echo "$INSTALL_DIR/run.sh &" >> /data/_root.sh
-    chmod +x /data/_root.sh 2>/dev/null || true
-    echo -e "  ${GREEN}✓ Автозагрузка настроена.${NC}"
-fi
+case "$AUTOSTART" in
+    [Nn]*) ;;
+    *)
+        echo -e "  ${T_CONFIG_AUTO}"
+        grep -q "$INSTALL_DIR/run.sh" /data/_root.sh 2>/dev/null || echo "$INSTALL_DIR/run.sh &" >> /data/_root.sh
+        chmod +x /data/_root.sh 2>/dev/null || true
+        echo -e "  ${GREEN}✓ Автозагрузка настроена.${NC}"
+        ;;
+esac
 
 # Запуск
 echo -e "  ${T_STARTING}"

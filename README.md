@@ -49,16 +49,26 @@
 
 ## ⚡️ Быстрый старт (Quick Start)
 
-### 🐧 Linux / macOS (или внутри SSH на роботе)
+### 🤖 Прямо на роботе (через SSH) или Linux / macOS
 
-Установка последней версии:
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)
+> [!NOTE]
+> На роботах с Valetudo (Dreame, Roborock и др.) установлена легковесная система на базе BusyBox, где в качестве командной оболочки доступен **`/bin/sh`**, а не `bash`. Онлайн-установщик `install.sh` написан на чистом POSIX `sh` и автоматически поддерживает как `curl`, так и `wget`.
+
+**Установка последней версии (в одну команду):**
+```sh
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
 ```
 
-Установка конкретной версии (например, `1.0.10`):
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh) 1.0.10
+**Либо через скачивание скрипта:**
+```sh
+wget -qO /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh
+sh /tmp/install.sh
+```
+
+**Установка конкретной версии (например, `1.0.11`):**
+```sh
+wget -qO /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh
+sh /tmp/install.sh 1.0.11
 ```
 
 ---
@@ -70,9 +80,9 @@ bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/ma
 irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
 ```
 
-Установка конкретной версии (например, `1.0.10`):
+Установка конкретной версии (например, `1.0.11`):
 ```powershell
-$Version="1.0.10"; irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
+$Version="1.0.11"; irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
 ```
 
 ---
@@ -163,7 +173,7 @@ $Version="1.0.10"; irm https://raw.githubusercontent.com/melil/valetudo-telegram
 │
 ├── .github/workflows/               # Автоматическая сборка релизов при пуше тэгов
 │   └── release.yml
-├── install.sh                       # Онлайн-установщик в одну команду (Linux/macOS/SSH: curl | bash)
+├── install.sh                       # Онлайн-установщик в одну команду (Linux/macOS/SSH на роботе: sh)
 ├── install.ps1                      # Онлайн-установщик в одну команду (Windows: irm | iex)
 ├── start.sh                         # Интерактивный мастер локальной сборки (macOS/Linux/Bash)
 ├── start.ps1                        # Интерактивный мастер локальной сборки (Windows PowerShell)
