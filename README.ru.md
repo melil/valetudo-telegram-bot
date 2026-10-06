@@ -3,7 +3,7 @@
 [English](README.md) | **Русский**
 
 [![Vibe](https://img.shields.io/badge/vibecoded-with%20love-ff69b4.svg)](https://github.com/melil/valetudo-telegram-bot)
-[![Go Version](https://img.shields.io/github/go-mod/v/melil/valetudo-telegram-bot)](https://github.com/melil/valetudo-telegram-bot)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/melil/valetudo-telegram-bot?color=00ADD8&logo=go&logoColor=white)](https://github.com/melil/valetudo-telegram-bot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Легковесный, автономный Telegram-бот на Go для управления роботом-пылесосом с прошивкой [Valetudo v2](https://valetudo.cloud/) через локальный REST API. Протестировано на Dreame X30 Pro (поддерживаются и любые другие совместимые роботы Dreame, Roborock и др. под управлением Valetudo).

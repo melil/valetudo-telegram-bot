@@ -3,7 +3,7 @@
 **English** | [Русский](README.ru.md)
 
 [![Vibe](https://img.shields.io/badge/vibecoded-with%20love-ff69b4.svg)](https://github.com/melil/valetudo-telegram-bot)
-[![Go Version](https://img.shields.io/github/go-mod/v/melil/valetudo-telegram-bot)](https://github.com/melil/valetudo-telegram-bot)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/melil/valetudo-telegram-bot?color=00ADD8&logo=go&logoColor=white)](https://github.com/melil/valetudo-telegram-bot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A lightweight, standalone Go Telegram bot for controlling vacuum robots running [Valetudo v2](https://valetudo.cloud/) via its local REST API. Tested on Dreame X30 Pro (also supports other Valetudo-compatible Dreame, Roborock, and similar models).
