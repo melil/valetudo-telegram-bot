@@ -12,6 +12,12 @@
 
 ---
 
+<p align="center">
+  <video src="demo/ru.webm" autoplay loop muted playsinline width="400px"></video>
+</p>
+
+---
+
 ## 🚀 Возможности
 
 - 🪄 **Мастер уборки (Wizard) и Быстрая уборка**:

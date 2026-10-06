@@ -12,6 +12,12 @@
 
 ---
 
+<p align="center">
+  <video src="demo/zh.webm" autoplay loop muted playsinline width="400px"></video>
+</p>
+
+---
+
 ## 🚀 功能特性
 
 - 🪄 **清扫向导 (Wizard) 与快速清扫**:
