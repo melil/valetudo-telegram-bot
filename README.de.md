@@ -13,7 +13,7 @@ Ausschließlich mit der Go-Standardbibliothek ohne externe Laufzeitabhängigkeit
 ---
 
 <p align="center">
-  <video src="demo/de.webm" autoplay loop muted playsinline width="400px"></video>
+  <img src="demo/de.gif" width="400px" alt="Demo">
 </p>
 
 ---

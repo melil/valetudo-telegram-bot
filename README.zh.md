@@ -13,7 +13,7 @@
 ---
 
 <p align="center">
-  <video src="demo/zh.webm" autoplay loop muted playsinline width="400px"></video>
+  <img src="demo/zh.gif" width="400px" alt="Demo">
 </p>
 
 ---

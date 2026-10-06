@@ -13,7 +13,7 @@ Built entirely with the Go standard library without external runtime dependencie
 ---
 
 <p align="center">
-  <video src="demo/en.webm" autoplay loop muted playsinline width="400px"></video>
+  <img src="demo/en.gif" width="400px" alt="Demo">
 </p>
 
 ---
