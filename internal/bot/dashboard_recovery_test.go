@@ -82,13 +82,15 @@ func TestClearHistoryAndStart(t *testing.T) {
 	})
 
 	mu.Lock()
-	if len(sentMessages) != 1 {
-		t.Fatalf("expected 1 sendMessage call, got %d", len(sentMessages))
+	// /start sends 2 messages: welcome reply keyboard (1001) and main dashboard (1002)
+	if len(sentMessages) != 2 {
+		t.Fatalf("expected 2 sendMessage calls on /start (welcome + dashboard), got %d", len(sentMessages))
 	}
 	if len(editedMessages) != 0 {
 		t.Fatalf("expected 0 editMessageText calls on /start, got %d", len(editedMessages))
 	}
-	// Verify that user message (42) and old dashboard message (555) were deleted
+	// Verify that user message (42) was NOT deleted (critical to avoid client start loop),
+	// but old dashboard message (555) was deleted.
 	hasDeletedUserMsg := false
 	hasDeletedOldDash := false
 	for _, id := range deletedMsgIDs {
@@ -99,16 +101,16 @@ func TestClearHistoryAndStart(t *testing.T) {
 			hasDeletedOldDash = true
 		}
 	}
-	if !hasDeletedUserMsg {
-		t.Errorf("expected user message 42 to be deleted, deleted IDs: %v", deletedMsgIDs)
+	if hasDeletedUserMsg {
+		t.Errorf("expected user /start message 42 NOT to be deleted, but it was deleted")
 	}
 	if !hasDeletedOldDash {
 		t.Errorf("expected old dashboard message 555 to be deleted, deleted IDs: %v", deletedMsgIDs)
 	}
 
 	newDashboardID := b.GetDashboardMsgID()
-	if newDashboardID != 1001 {
-		t.Errorf("expected dashboardMsgID to be 1001, got %d", newDashboardID)
+	if newDashboardID != 1002 {
+		t.Errorf("expected dashboardMsgID to be 1002, got %d", newDashboardID)
 	}
 	mu.Unlock()
 
@@ -125,8 +127,8 @@ func TestClearHistoryAndStart(t *testing.T) {
 	if len(editedMessages) != 1 {
 		t.Fatalf("expected 1 editMessageText call on inline button click, got %d", len(editedMessages))
 	}
-	if editedMessages[0].MessageID != 1001 {
-		t.Errorf("expected editMessageText target to be 1001, got %d", editedMessages[0].MessageID)
+	if editedMessages[0].MessageID != 1002 {
+		t.Errorf("expected editMessageText target to be 1002, got %d", editedMessages[0].MessageID)
 	}
 	mu.Unlock()
 
@@ -140,11 +142,21 @@ func TestClearHistoryAndStart(t *testing.T) {
 	})
 
 	mu.Lock()
-	if len(sentMessages) != 2 {
-		t.Fatalf("expected 2 total sendMessage calls, got %d", len(sentMessages))
+	if len(sentMessages) != 3 {
+		t.Fatalf("expected 3 total sendMessage calls, got %d", len(sentMessages))
 	}
-	if b.GetDashboardMsgID() != 1002 {
-		t.Errorf("expected dashboardMsgID to be updated to 1002, got %d", b.GetDashboardMsgID())
+	if b.GetDashboardMsgID() != 1003 {
+		t.Errorf("expected dashboardMsgID to be updated to 1003, got %d", b.GetDashboardMsgID())
+	}
+	// Non-start text command (43) should be deleted
+	hasDeletedResourcesMsg := false
+	for _, id := range deletedMsgIDs {
+		if id == 43 {
+			hasDeletedResourcesMsg = true
+		}
+	}
+	if !hasDeletedResourcesMsg {
+		t.Errorf("expected user /resources message 43 to be deleted, deleted IDs: %v", deletedMsgIDs)
 	}
 	mu.Unlock()
 }

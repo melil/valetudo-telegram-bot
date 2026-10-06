@@ -13,6 +13,7 @@
     "stop_robot": "🛑 Stop",
     "go_home": "🏠 Return Home",
     "ready": "🕹 <b>Robot Control Ready:</b>",
+    "welcome": "👋 <b>Welcome!</b>\n🕹 <b>Robot Control Ready:</b>",
     "unrecognized": "Unrecognized command. Please use the menu.",
     "not_supported": "⚠️ This feature is not supported by your robot model.",
     "btn_last_report": "📊 Last Cleaning Report",

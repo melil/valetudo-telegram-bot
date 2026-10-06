@@ -13,6 +13,7 @@
     "stop_robot": "🛑 停止",
     "go_home": "🏠 回充",
     "ready": "🕹 <b>扫地机器人控制已就绪：</b>",
+    "welcome": "👋 <b>欢迎！</b>\n🕹 <b>扫地机器人控制已就绪：</b>",
     "unrecognized": "未能识别该指令，请使用菜单选项。",
     "not_supported": "⚠️ 您的扫地机型号不支持此功能。",
     "btn_last_report": "📊 上次清扫报告",

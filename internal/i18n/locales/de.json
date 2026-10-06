@@ -13,6 +13,7 @@
     "stop_robot": "🛑 Stopp",
     "go_home": "🏠 Zur Station",
     "ready": "🕹 <b>Robotersteuerung bereit:</b>",
+    "welcome": "👋 <b>Willkommen!</b>\n🕹 <b>Robotersteuerung bereit:</b>",
     "unrecognized": "Befehl nicht erkannt. Bitte Menü verwenden.",
     "not_supported": "⚠️ Diese Funktion wird von Ihrem Robotermodell nicht unterstützt.",
     "btn_last_report": "📊 Letzter Reinigungsbericht",

@@ -81,7 +81,10 @@ func (s *Service) HandleUnauthorizedAccess(msg *telegram.Message) {
 		return
 	}
 	chatID := msg.Chat.ID
-	_ = s.tg.DeleteMessage(chatID, msg.MessageID)
+	cleanText := strings.TrimSpace(msg.Text)
+	if cleanText != "/start" && !strings.HasPrefix(cleanText, "/start ") {
+		_ = s.tg.DeleteMessage(chatID, msg.MessageID)
+	}
 
 	// 1. Отвечаем неавторизованному пользователю
 	replyText := fmt.Sprintf(s.tUser(chatID, "auth.no_access"), chatID)

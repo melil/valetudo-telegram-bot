@@ -109,9 +109,13 @@ func (h *Handler) SendMainMenuKeyboard(chatID int64) {
 	status, flag := h.facade.GetRobotStatus()
 	loc := h.facade.GetUserLang(chatID)
 	markup := GetMainMenuMarkup(h.facade.GetCaps(), status, flag, loc)
+	text := h.t(chatID, "main_menu.welcome")
+	if text == "main_menu.welcome" || text == "" {
+		text = h.t(chatID, "main_menu.ready")
+	}
 	_, _ = h.tg.SendPayload(telegram.SendMessagePayload{
 		ChatID:              chatID,
-		Text:                h.t(chatID, "main_menu.ready"),
+		Text:                text,
 		ParseMode:           "HTML",
 		ReplyMarkup:         markup,
 		DisableNotification: true,
@@ -123,10 +127,16 @@ func (h *Handler) HandleTextCommand(msg *telegram.Message) {
 		return
 	}
 	chatID := msg.Chat.ID
-	_ = h.tg.DeleteMessage(chatID, msg.MessageID)
-
 	cleanText := strings.TrimSpace(msg.Text)
-	if cleanText == "/start" {
+	isStartCmd := cleanText == "/start" || strings.HasPrefix(cleanText, "/start ")
+
+	// Команду /start не удаляем: Telegram-клиенту необходимо входящее сообщение в истории чата
+	// для корректного перехода из состояния "START" и предотвращения зацикливания кнопки.
+	if !isStartCmd {
+		_ = h.tg.DeleteMessage(chatID, msg.MessageID)
+	}
+
+	if isStartCmd {
 		h.cleaningSvc.CancelSession(chatID)
 	}
 
@@ -136,7 +146,11 @@ func (h *Handler) HandleTextCommand(msg *telegram.Message) {
 	loc := h.facade.GetUserLang(chatID)
 
 	switch {
-	case cleanText == "/start" || cleanText == "Меню" || cleanText == "Menu" || cleanText == "Menü" || cleanText == "菜单":
+	case isStartCmd:
+		h.SendMainMenuKeyboard(chatID)
+		h.SendMainDashboard(chatID)
+
+	case cleanText == "Меню" || cleanText == "Menu" || cleanText == "Menü" || cleanText == "菜单":
 		h.SendMainDashboard(chatID)
 
 	case cleanText == "/wizard" || i18n.Matches(cleanText, "main_menu.start_cleaning"):
