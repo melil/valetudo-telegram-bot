@@ -49,25 +49,40 @@
 
 ## ⚡️ Быстрый старт (Quick Start)
 
-Подключитесь к вашему роботу по SSH (`ssh root@<IP_РОБОТА>`) и выполните команду:
+### 🐧 Linux / macOS (или внутри SSH на роботе)
 
+Установка последней версии:
 ```bash
 bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)
 ```
 
-Для установки конкретной версии бота передайте тэг аргументом (например, `1.0.9`):
-
+Установка конкретной версии (например, `1.0.9`):
 ```bash
 bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh) 1.0.9
 ```
 
 ---
 
+### 🪟 Windows (PowerShell)
+
+Установка последней версии прямо с вашего компьютера:
+```powershell
+irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
+```
+
+Установка конкретной версии (например, `1.0.9`):
+```powershell
+$Version="1.0.9"; irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
+```
+
+---
+
 ### Шаги мастера в терминале:
 1. 🌍 **Выбор языка мастера** (`1` — Русский, `2` — English, `3` — Deutsch, `4` — 简体中文).
-2. 🤖 **Токен бота** от [@BotFather](https://t.me/BotFather).
-3. 🆔 **Ваш Telegram ID** от [@userinfobot](https://t.me/userinfobot).
-4. 🚀 **Автозагрузка** при включении робота (`[Y/n]`, по умолчанию `Y`).
+2. 🌐 **IP-адрес робота** (при запуске с Windows/ПК) для подключения по SSH.
+3. 🤖 **Токен бота** от [@BotFather](https://t.me/BotFather).
+4. 🆔 **Ваш Telegram ID** от [@userinfobot](https://t.me/userinfobot).
+5. 🚀 **Автозагрузка** при включении робота (`[Y/n]`, по умолчанию `Y`).
 
 > [!TIP]
 > Мастер автоматически скачает оптимизированный бинарник `tgbot` для ARM64 из GitHub Releases, скрипт супервизора `run.sh`, создаст конфигурацию `/data/tgbot/.env`, настроит права, пропишет автозагрузку (`/data/_root.sh`) и запустит службу бота в фоне.
@@ -78,13 +93,13 @@ bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/ma
 - Откройте бота в Telegram и отправьте команду `/start` — появится интерактивный дашборд управления роботом.
 - Просмотр логов работы бота на роботе в реальном времени:
   ```bash
-  tail -f /tmp/log/custom/tgbot.log
+  ssh root@<IP_РОБОТА> "tail -f /tmp/log/custom/tgbot.log"
   ```
 
 <details>
 <summary>🛠 Альтернативные способы установки (с компьютера или локальная сборка)</summary>
 
-**Установка с локального компьютера (интерактивные мастера):**
+**Установка с локального компьютера (интерактивные мастера с компиляцией):**
 - **macOS / Linux / Git Bash:** `./start.sh`
 - **Windows (PowerShell):** `.\start.ps1`
 
@@ -148,9 +163,10 @@ bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/ma
 │
 ├── .github/workflows/               # Автоматическая сборка релизов при пуше тэгов
 │   └── release.yml
-├── install.sh                       # Онлайн-установщик в одну команду (curl | bash)
-├── start.sh                         # Интерактивный мастер быстрой установки (macOS/Linux/Bash)
-├── start.ps1                        # Интерактивный мастер быстрой установки (Windows PowerShell)
+├── install.sh                       # Онлайн-установщик в одну команду (Linux/macOS/SSH: curl | bash)
+├── install.ps1                      # Онлайн-установщик в одну команду (Windows: irm | iex)
+├── start.sh                         # Интерактивный мастер локальной сборки (macOS/Linux/Bash)
+├── start.ps1                        # Интерактивный мастер локальной сборки (Windows PowerShell)
 ├── deploy.ps1                       # Скрипт прямого деплоя на робота по SSH/SCP
 ├── run.sh                           # Скрипт супервизора процесса для робота
 ├── Dockerfile                       # Многоэтапный Docker-образ
