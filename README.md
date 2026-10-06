@@ -56,9 +56,9 @@
 bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)
 ```
 
-Установка конкретной версии (например, `1.0.9`):
+Установка конкретной версии (например, `1.0.10`):
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh) 1.0.9
+bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh) 1.0.10
 ```
 
 ---
@@ -70,9 +70,9 @@ bash <(curl -Ls https://raw.githubusercontent.com/melil/valetudo-telegram-bot/ma
 irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
 ```
 
-Установка конкретной версии (например, `1.0.9`):
+Установка конкретной версии (например, `1.0.10`):
 ```powershell
-$Version="1.0.9"; irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
+$Version="1.0.10"; irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
 ```
 
 ---

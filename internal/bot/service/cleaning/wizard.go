@@ -2,6 +2,7 @@ package cleaning
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -165,7 +166,7 @@ func (s *WizardService) ExecuteCleaning(chatID int64, iterations int, hasModeCap
 
 	if sess.Mode != "" && hasModeCap {
 		if err := s.val.SetOperationMode(sess.Mode); err != nil {
-			return sess.Mode, targetNames, iterations, fmt.Errorf("failed to set operation mode: %w", err)
+			log.Printf("[CleaningWizard] warning: failed to set operation mode %q: %v (continuing)", sess.Mode, err)
 		}
 	}
 

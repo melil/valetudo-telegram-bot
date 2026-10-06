@@ -2,7 +2,7 @@
 #  🤖 Valetudo Telegram Bot — Онлайн-установщик для Windows (PowerShell)
 #  Использование:
 #    irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
-#    $Version="1.0.9"; irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
+#    $Version="1.0.10"; irm https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.ps1 | iex
 # ==============================================================================
 
 $ErrorActionPreference = "Stop"

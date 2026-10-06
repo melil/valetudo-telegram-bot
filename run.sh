@@ -11,16 +11,6 @@ LOGFILE="$LOGDIR/tgbot.log"
 mkdir -p "$LOGDIR" "$DIR"
 cd "$DIR" || exit 1
 
-# Ensure reliable DNS fallback in system resolv.conf
-ensure_dns() {
-    _RESOLV="/tmp/root/etc/resolv.conf"
-    if [ -f "$_RESOLV" ]; then
-        if ! grep -q "8.8.8.8" "$_RESOLV" 2>/dev/null; then
-            echo "nameserver 8.8.8.8" >> "$_RESOLV"
-            log_msg "Added nameserver 8.8.8.8 to $_RESOLV"
-        fi
-    fi
-}
 
 # Single-instance guard
 if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
@@ -94,8 +84,6 @@ fi
 
 # Supervisor restart loop with watchdog
 while true; do
-    ensure_dns
-
     # Rotate log if size exceeds 2 MB (2097152 bytes)
     if [ -f "$LOGFILE" ] && [ "$(wc -c < "$LOGFILE" 2>/dev/null || echo 0)" -gt 2097152 ]; then
         tail -n 2000 "$LOGFILE" > "$LOGFILE.tmp" && mv "$LOGFILE.tmp" "$LOGFILE"
@@ -114,7 +102,6 @@ while true; do
     # Watchdog loop: monitors process health and heartbeat timestamp
     while kill -0 "$BOT_PID" 2>/dev/null; do
         sleep 15
-        ensure_dns
 
         if [ -f "$ALIVE_FILE" ]; then
             _LAST_ALIVE=$(stat -c %Y "$ALIVE_FILE" 2>/dev/null || echo 0)

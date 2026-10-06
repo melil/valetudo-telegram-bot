@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -81,9 +82,12 @@ func NewService(
 	}
 
 	downloadTransport := &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           netutil.NewResilientDialer().DialContext,
-		ForceAttemptHTTP2:     false,
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2: false,
 		TLSNextProto:          make(map[string]func(string, *tls.Conn) http.RoundTripper),
 		TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
 		DisableKeepAlives:     true, // Prevent unexpected EOF from stale keep-alive sockets
