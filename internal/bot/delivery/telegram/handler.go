@@ -25,6 +25,7 @@ import (
 type BotFacade interface {
 	GetCaps() *valetudo.CapabilitySet
 	GetRobotStatus() (string, string)
+	GetRobotError() *valetudo.RobotError
 	SetRobotStatus(status, flag string)
 	GetUserLang(chatID int64) i18n.Locale
 	SetUserLang(chatID int64, loc i18n.Locale)
@@ -314,7 +315,7 @@ func (h *Handler) showNotSupported(chatID int64) {
 func (h *Handler) sendRobotMenu(chatID int64) {
 	status, flag := h.facade.GetRobotStatus()
 	loc := h.facade.GetUserLang(chatID)
-	text, markup := GetRobotMenu(h.facade.GetCaps(), status, flag, loc)
+	text, markup := GetRobotMenu(h.facade.GetCaps(), status, flag, loc, h.facade.GetRobotError())
 	_ = h.facade.RenderDashboard(chatID, text, markup)
 }
 

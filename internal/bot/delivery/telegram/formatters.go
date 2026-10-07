@@ -9,6 +9,7 @@ import (
 	"tgbot/internal/bot/domain"
 	"tgbot/internal/bot/service/consumables"
 	"tgbot/internal/i18n"
+	"tgbot/internal/valetudo"
 	"tgbot/internal/version"
 )
 
@@ -25,6 +26,10 @@ func RenderProgressBar(percent int) string {
 }
 
 func FormatStatusDisplay(status, flag string, loc i18n.Locale) string {
+	return FormatStatusDisplayWithError(status, flag, nil, loc)
+}
+
+func FormatStatusDisplayWithError(status, flag string, rErr *valetudo.RobotError, loc i18n.Locale) string {
 	var icon, title string
 
 	switch status {
@@ -67,6 +72,10 @@ func FormatStatusDisplay(status, flag string, loc i18n.Locale) string {
 	case "error":
 		icon = "🚨"
 		title = i18n.T(loc, "statuses.error")
+		if rErr != nil && rErr.Message != "" {
+			errText := i18n.TranslateRobotError(loc, rErr.Message)
+			return fmt.Sprintf("%s %s: %s", icon, title, errText)
+		}
 		if flag != "" && flag != "none" {
 			title += " (" + flag + ")"
 		}
@@ -79,6 +88,29 @@ func FormatStatusDisplay(status, flag string, loc i18n.Locale) string {
 	}
 
 	return fmt.Sprintf("%s %s", icon, title)
+}
+
+func FormatErrorNotification(status string, rErr *valetudo.RobotError, loc i18n.Locale) string {
+	var errDesc string
+	if rErr != nil && rErr.Message != "" {
+		errDesc = i18n.TranslateRobotError(loc, rErr.Message)
+	} else {
+		errDesc = i18n.T(loc, "robot_errors.unknown_error")
+	}
+
+	statusTitle := i18n.T(loc, "statuses."+status)
+	if statusTitle == "statuses."+status || statusTitle == "" {
+		statusTitle = status
+	}
+
+	codeSuffix := ""
+	if rErr != nil {
+		if code := rErr.GetVendorErrorCode(); code != "" && code != "none" && code != "0" {
+			codeSuffix = fmt.Sprintf(i18n.T(loc, "watcher.err_code"), code)
+		}
+	}
+
+	return fmt.Sprintf(i18n.T(loc, "watcher.err_robot"), errDesc, statusTitle, codeSuffix)
 }
 
 func FormatModeTitle(mode string, loc i18n.Locale) string {
@@ -347,6 +379,10 @@ func BuildTelemetryReport(
 		if attrs, err := val.GetAttributes(); err == nil {
 			for _, attr := range attrs {
 				switch attr.Class {
+				case "StatusStateAttribute":
+					if valStr, ok := attr.Value.(string); ok && valStr == "error" {
+						robotStatus = FormatStatusDisplayWithError(valStr, attr.Flag, attr.Error, loc)
+					}
 				case "BatteryStateAttribute":
 					batLevel = strconv.Itoa(attr.Level)
 				case "DockStatusStateAttribute":

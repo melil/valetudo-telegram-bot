@@ -305,8 +305,9 @@ func (c *Client) GetAttributes() ([]GenericAttribute, error) {
 }
 
 type RobotStatus struct {
-	Value string `json:"value"`
-	Flag  string `json:"flag"`
+	Value string      `json:"value"`
+	Flag  string      `json:"flag"`
+	Error *RobotError `json:"error,omitempty"`
 }
 
 func (c *Client) GetStatus() (RobotStatus, error) {
@@ -320,6 +321,7 @@ func (c *Client) GetStatus() (RobotStatus, error) {
 			return RobotStatus{
 				Value: val,
 				Flag:  attr.Flag,
+				Error: attr.Error,
 			}, nil
 		}
 	}

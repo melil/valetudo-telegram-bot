@@ -10,16 +10,19 @@ import (
 	"tgbot/internal/bot/domain"
 	"tgbot/internal/bot/service/auth"
 	"tgbot/internal/bot/service/session"
+	"tgbot/internal/valetudo"
 )
 
 type Config struct {
-	Interval           time.Duration
-	IsDNDActive        func() bool
-	OnStatusUpdate     func(status, flag string)
-	OnLoadCapabilities func() error
-	OnBroadcastDash    func()
-	FormatCaption      func(report *domain.CleaningReport, chatID int64) string
-	TranslateUser      func(chatID int64, key string, args ...any) string
+	Interval                time.Duration
+	IsDNDActive             func() bool
+	OnStatusUpdate          func(status, flag string)
+	OnErrorUpdate           func(rErr *valetudo.RobotError)
+	OnLoadCapabilities      func() error
+	OnBroadcastDash         func()
+	FormatCaption           func(report *domain.CleaningReport, chatID int64) string
+	TranslateUser           func(chatID int64, key string, args ...any) string
+	FormatErrorNotification func(chatID int64, status string, rErr *valetudo.RobotError) string
 }
 
 type Service struct {
@@ -49,6 +52,8 @@ func NewService(
 func (s *Service) Start(ctx context.Context) {
 	var lastStatus string
 	var lastFlag string
+	var lastErrorDesc string
+	var lastErrorCode string
 	var lastCleanWater string
 	var lastDirtyWater string
 	var lastMidCleanDocked bool
@@ -91,6 +96,7 @@ func (s *Service) Start(ctx context.Context) {
 			currentDirtyWater := "ok"
 			currentDockStatus := "idle"
 			currentBattery := 0
+			var currentError *valetudo.RobotError
 
 			for _, attr := range attrs {
 				switch attr.Class {
@@ -100,6 +106,9 @@ func (s *Service) Start(ctx context.Context) {
 					}
 					if attr.Flag != "" {
 						currentFlag = attr.Flag
+					}
+					if attr.Error != nil {
+						currentError = attr.Error
 					}
 				case "BatteryStateAttribute":
 					currentBattery = attr.Level
@@ -120,6 +129,9 @@ func (s *Service) Start(ctx context.Context) {
 			if s.cfg.OnStatusUpdate != nil {
 				s.cfg.OnStatusUpdate(currentStatus, currentFlag)
 			}
+			if s.cfg.OnErrorUpdate != nil {
+				s.cfg.OnErrorUpdate(currentError)
+			}
 
 			// Автоматический запуск отслеживания сессии, если уборку включили вне визарда
 			if (currentStatus == "cleaning" || currentStatus == "moving") && !s.sessionSvc.IsActive() {
@@ -137,9 +149,18 @@ func (s *Service) Start(ctx context.Context) {
 				s.sessionSvc.UpdateStats(min, sec, areaM2)
 			}
 
+			currentErrorDesc := ""
+			currentErrorCode := ""
+			if currentError != nil {
+				currentErrorDesc = currentError.Message
+				currentErrorCode = currentError.GetVendorErrorCode()
+			}
+
 			if firstRun {
 				lastStatus = currentStatus
 				lastFlag = currentFlag
+				lastErrorDesc = currentErrorDesc
+				lastErrorCode = currentErrorCode
 				lastCleanWater = currentCleanWater
 				lastDirtyWater = currentDirtyWater
 				lastMidCleanDocked = isMidCleanDocked
@@ -152,9 +173,21 @@ func (s *Service) Start(ctx context.Context) {
 				isDND = s.cfg.IsDNDActive()
 			}
 
-			if currentStatus == "error" && (lastStatus != "error" || currentFlag != lastFlag) {
+			isError := currentStatus == "error"
+			errorChanged := isError && (lastStatus != "error" || currentFlag != lastFlag || currentErrorDesc != lastErrorDesc || currentErrorCode != lastErrorCode)
+
+			if errorChanged {
 				for _, chatID := range s.authSvc.GetNotifyChatIDs("errors") {
-					msg := s.cfg.TranslateUser(chatID, "watcher.err_robot", currentStatus, currentFlag)
+					var msg string
+					if s.cfg.FormatErrorNotification != nil {
+						msg = s.cfg.FormatErrorNotification(chatID, currentStatus, currentError)
+					} else {
+						errParam := currentErrorDesc
+						if errParam == "" {
+							errParam = currentFlag
+						}
+						msg = s.cfg.TranslateUser(chatID, "watcher.err_robot", currentStatus, errParam)
+					}
 					_, _ = s.tg.SendTextMessage(chatID, msg, isDND, nil)
 				}
 				if s.cfg.OnBroadcastDash != nil {
@@ -250,6 +283,8 @@ func (s *Service) Start(ctx context.Context) {
 
 			lastStatus = currentStatus
 			lastFlag = currentFlag
+			lastErrorDesc = currentErrorDesc
+			lastErrorCode = currentErrorCode
 			lastCleanWater = currentCleanWater
 			lastDirtyWater = currentDirtyWater
 			lastMidCleanDocked = isMidCleanDocked

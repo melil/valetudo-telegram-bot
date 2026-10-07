@@ -154,3 +154,56 @@ func TestFallback(t *testing.T) {
 		t.Errorf("expected key fallback, got '%s'", unknown)
 	}
 }
+
+func TestTranslateRobotError(t *testing.T) {
+	// 1. Wheel lost floor contact (the user's exact case when lifting robot)
+	ruLift := TranslateRobotError(LocaleRU, "Wheel lost floor contact")
+	if ruLift != "Колеса потеряли контакт с полом (робот поднят)" {
+		t.Errorf("expected Russian lifted message, got %q", ruLift)
+	}
+	enLift := TranslateRobotError(LocaleEN, "Wheel lost floor contact")
+	if enLift != "Wheel lost floor contact" {
+		t.Errorf("expected English lifted message, got %q", enLift)
+	}
+	deLift := TranslateRobotError(LocaleDE, "Wheel lost floor contact")
+	if deLift != "Rad hat Bodenkontakt verloren (Roboter angehoben)" {
+		t.Errorf("expected German lifted message, got %q", deLift)
+	}
+	zhLift := TranslateRobotError(LocaleZH, "Wheel lost floor contact")
+	if zhLift != "轮子悬空（机器人被抬起）" {
+		t.Errorf("expected Chinese lifted message, got %q", zhLift)
+	}
+
+	// 2. Viomi lifted wheels message
+	ruViomi := TranslateRobotError(LocaleRU, "Wheels suspended - place the vacuum on a flat surface")
+	if ruViomi != "Колеса зависли в воздухе — опустите робота на ровную поверхность" {
+		t.Errorf("expected Viomi Russian message, got %q", ruViomi)
+	}
+
+	// 3. Dynamic error messages (Internal error / Unknown error)
+	ruUnknown := TranslateRobotError(LocaleRU, "Unknown error 42")
+	if ruUnknown != "Неизвестная ошибка 42" {
+		t.Errorf("expected dynamic unknown error in RU, got %q", ruUnknown)
+	}
+	ruInternal := TranslateRobotError(LocaleRU, "Internal error AVA_TEST")
+	if ruInternal != "Внутренняя ошибка AVA_TEST" {
+		t.Errorf("expected dynamic internal error in RU, got %q", ruInternal)
+	}
+
+	// 4. Empty / none fallback
+	ruEmpty := TranslateRobotError(LocaleRU, "")
+	if ruEmpty != "Неизвестная ошибка" {
+		t.Errorf("expected unknown error for empty string, got %q", ruEmpty)
+	}
+	ruNone := TranslateRobotError(LocaleRU, "none")
+	if ruNone != "Неизвестная ошибка" {
+		t.Errorf("expected unknown error for 'none', got %q", ruNone)
+	}
+
+	// 5. Unmapped custom error returned as-is
+	custom := TranslateRobotError(LocaleRU, "Custom Hardware Fault")
+	if custom != "Custom Hardware Fault" {
+		t.Errorf("expected raw message for unmapped error, got %q", custom)
+	}
+}
+

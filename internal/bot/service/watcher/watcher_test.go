@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -380,4 +381,132 @@ func TestWatcher_WaterTankNotifications(t *testing.T) {
 	mockTg.sentMessages = nil
 	mockTg.mu.Unlock()
 }
+
+func TestWatcher_RobotErrorNotifications(t *testing.T) {
+	mockVal := &mockRobotClient{}
+	mockTg := &mockMessenger{}
+	authSvc := auth.NewService(123, &mockUserRepo{}, mockTg)
+	sessionSvc := session.NewService(mockVal)
+
+	var lastErrorCaptured *valetudo.RobotError
+
+	svc := NewService(
+		mockVal,
+		mockTg,
+		authSvc,
+		sessionSvc,
+		Config{
+			Interval: 10 * time.Millisecond,
+			OnErrorUpdate: func(rErr *valetudo.RobotError) {
+				lastErrorCaptured = rErr
+			},
+			FormatErrorNotification: func(chatID int64, status string, rErr *valetudo.RobotError) string {
+				desc := "unknown"
+				code := ""
+				if rErr != nil {
+					desc = rErr.Message
+					code = rErr.GetVendorErrorCode()
+				}
+				return fmt.Sprintf("status=%s desc=%s code=%s", status, desc, code)
+			},
+			TranslateUser: func(chatID int64, key string, args ...any) string {
+				return key
+			},
+		},
+	)
+
+	// Baseline: docked
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{Class: "StatusStateAttribute", Value: "docked", Flag: "none"},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go svc.Start(ctx)
+	time.Sleep(30 * time.Millisecond) // initial baseline
+
+	// 1. Robot lifted up -> Wheel lost floor contact (code 3)
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{
+			Class: "StatusStateAttribute",
+			Value: "error",
+			Flag:  "none",
+			Error: &valetudo.RobotError{
+				Message:         "Wheel lost floor contact",
+				VendorErrorCode: 3,
+			},
+		},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+	time.Sleep(35 * time.Millisecond)
+
+	mockTg.mu.Lock()
+	if len(mockTg.sentMessages) != 1 {
+		t.Fatalf("expected 1 error notification, got %d: %v", len(mockTg.sentMessages), mockTg.sentMessages)
+	}
+	expectedMsg := "status=error desc=Wheel lost floor contact code=3"
+	if mockTg.sentMessages[0] != expectedMsg {
+		t.Errorf("expected %q, got %q", expectedMsg, mockTg.sentMessages[0])
+	}
+	mockTg.sentMessages = nil
+	mockTg.mu.Unlock()
+
+	if lastErrorCaptured == nil || lastErrorCaptured.Message != "Wheel lost floor contact" {
+		t.Errorf("expected lastErrorCaptured to be 'Wheel lost floor contact', got: %v", lastErrorCaptured)
+	}
+
+	// 2. Next tick with identical error -> deduplicated (no message)
+	time.Sleep(35 * time.Millisecond)
+	mockTg.mu.Lock()
+	if len(mockTg.sentMessages) != 0 {
+		t.Fatalf("expected deduplication (0 messages), got: %v", mockTg.sentMessages)
+	}
+	mockTg.mu.Unlock()
+
+	// 3. New error occurs (e.g. Robot stuck or trapped, code 8) -> new notification
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{
+			Class: "StatusStateAttribute",
+			Value: "error",
+			Flag:  "none",
+			Error: &valetudo.RobotError{
+				Message:         "Robot stuck or trapped",
+				VendorErrorCode: "8",
+			},
+		},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+	time.Sleep(35 * time.Millisecond)
+
+	mockTg.mu.Lock()
+	if len(mockTg.sentMessages) != 1 {
+		t.Fatalf("expected 1 error notification for new error, got %d: %v", len(mockTg.sentMessages), mockTg.sentMessages)
+	}
+	expectedMsg2 := "status=error desc=Robot stuck or trapped code=8"
+	if mockTg.sentMessages[0] != expectedMsg2 {
+		t.Errorf("expected %q, got %q", expectedMsg2, mockTg.sentMessages[0])
+	}
+	mockTg.sentMessages = nil
+	mockTg.mu.Unlock()
+
+	// 4. Robot recovered and returned to docked -> error cleared
+	mockVal.SetAttributes([]valetudo.GenericAttribute{
+		{Class: "StatusStateAttribute", Value: "docked", Flag: "none"},
+		{Class: "DockStatusStateAttribute", Value: "idle"},
+		{Class: "BatteryStateAttribute", Level: 100},
+	})
+	time.Sleep(35 * time.Millisecond)
+
+	mockTg.mu.Lock()
+	if len(mockTg.sentMessages) != 0 {
+		t.Fatalf("expected 0 messages on recovery, got: %v", mockTg.sentMessages)
+	}
+	mockTg.mu.Unlock()
+}
+
 

@@ -58,6 +58,7 @@ type Bot struct {
 	statusMu   sync.RWMutex
 	lastStatus string
 	lastFlag   string
+	lastError  *valetudo.RobotError
 
 	langMu sync.RWMutex
 	lang   i18n.Locale
@@ -145,6 +146,9 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client, db ...*d
 			OnStatusUpdate: func(status, flag string) {
 				b.SetRobotStatus(status, flag)
 			},
+			OnErrorUpdate: func(rErr *valetudo.RobotError) {
+				b.SetRobotError(rErr)
+			},
 			OnLoadCapabilities: func() error {
 				if len(b.Caps().List()) == 0 {
 					return b.LoadCapabilities()
@@ -159,6 +163,9 @@ func New(cfg *config.Config, tg *telegram.Client, val *valetudo.Client, db ...*d
 			},
 			TranslateUser: func(chatID int64, key string, args ...any) string {
 				return b.tUser(chatID, key, args...)
+			},
+			FormatErrorNotification: func(chatID int64, status string, rErr *valetudo.RobotError) string {
+				return delivery.FormatErrorNotification(status, rErr, b.GetUserLang(chatID))
 			},
 		},
 	)
@@ -201,23 +208,46 @@ func (b *Bot) GetRobotStatus() (string, string) {
 	}
 	st, err := b.val.GetStatus()
 	if err == nil {
-		b.SetRobotStatus(st.Value, st.Flag)
+		b.statusMu.Lock()
+		b.lastStatus = st.Value
+		b.lastFlag = st.Flag
+		b.lastError = st.Error
+		b.statusMu.Unlock()
 		return st.Value, st.Flag
 	}
 	return "idle", "none"
+}
+
+func (b *Bot) GetRobotError() *valetudo.RobotError {
+	b.statusMu.RLock()
+	defer b.statusMu.RUnlock()
+	return b.lastError
 }
 
 func (b *Bot) SetRobotStatus(status, flag string) {
 	b.statusMu.Lock()
 	b.lastStatus = status
 	b.lastFlag = flag
+	if status != "error" {
+		b.lastError = nil
+	}
+	b.statusMu.Unlock()
+}
+
+func (b *Bot) SetRobotError(rErr *valetudo.RobotError) {
+	b.statusMu.Lock()
+	b.lastError = rErr
 	b.statusMu.Unlock()
 }
 
 func (b *Bot) RefreshRobotStatus() (string, string) {
 	st, err := b.val.GetStatus()
 	if err == nil {
-		b.SetRobotStatus(st.Value, st.Flag)
+		b.statusMu.Lock()
+		b.lastStatus = st.Value
+		b.lastFlag = st.Flag
+		b.lastError = st.Error
+		b.statusMu.Unlock()
 		return st.Value, st.Flag
 	}
 	return b.GetRobotStatus()
@@ -531,7 +561,7 @@ func (b *Bot) broadcastMainDashboard() {
 }
 
 func (b *Bot) formatStatusDisplay(status, flag string) string {
-	return delivery.FormatStatusDisplay(status, flag, b.GetLang())
+	return delivery.FormatStatusDisplayWithError(status, flag, b.GetRobotError(), b.GetLang())
 }
 
 func (b *Bot) formatModeTitle(mode string) string {

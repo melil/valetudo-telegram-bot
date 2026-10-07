@@ -179,3 +179,59 @@ func Matches(text, key string) bool {
 	}
 	return false
 }
+
+// NormalizeErrorKey converts a raw error message into a canonical translation key
+func NormalizeErrorKey(msg string) string {
+	msg = strings.TrimSpace(msg)
+	var sb strings.Builder
+	for _, r := range msg {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			sb.WriteRune(r)
+		} else {
+			sb.WriteRune('_')
+		}
+	}
+	key := strings.ToLower(sb.String())
+	for strings.Contains(key, "__") {
+		key = strings.ReplaceAll(key, "__", "_")
+	}
+	return strings.Trim(key, "_")
+}
+
+// TranslateRobotError translates a raw robot error message from Valetudo
+func TranslateRobotError(loc Locale, msg string) string {
+	msg = strings.TrimSpace(msg)
+	if msg == "" || msg == "none" {
+		return T(loc, "robot_errors.unknown_error")
+	}
+
+	normKey := NormalizeErrorKey(msg)
+	fullKey := "robot_errors." + normKey
+	translated := T(loc, fullKey)
+	if translated != fullKey {
+		return translated
+	}
+
+	// Handle prefixes like "Unknown error 123" or "Internal error 123"
+	lower := strings.ToLower(msg)
+	if strings.HasPrefix(lower, "unknown error") {
+		prefix := T(loc, "robot_errors.unknown_error")
+		rest := strings.TrimSpace(msg[len("unknown error"):])
+		if rest != "" {
+			return prefix + " " + rest
+		}
+		return prefix
+	}
+	if strings.HasPrefix(lower, "internal error") {
+		prefix := T(loc, "robot_errors.internal_error")
+		rest := strings.TrimSpace(msg[len("internal error"):])
+		if rest != "" {
+			return prefix + " " + rest
+		}
+		return prefix
+	}
+
+	// If no translation found, return original message so information is preserved
+	return msg
+}
+

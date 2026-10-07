@@ -71,18 +71,20 @@ func GetMainDashboard(
 	loc i18n.Locale,
 ) (string, *telegram.InlineKeyboardMarkup) {
 	batStr := ""
+	var rErr *valetudo.RobotError
 	if val != nil {
 		if attrs, err := val.GetAttributes(); err == nil {
 			for _, attr := range attrs {
 				if attr.Class == "BatteryStateAttribute" {
 					batStr = fmt.Sprintf(" | 🔋 <b>%d%%</b>", attr.Level)
-					break
+				} else if attr.Class == "StatusStateAttribute" && attr.Error != nil {
+					rErr = attr.Error
 				}
 			}
 		}
 	}
 
-	statusDisplay := FormatStatusDisplay(status, flag, loc)
+	statusDisplay := FormatStatusDisplayWithError(status, flag, rErr, loc)
 
 	text := fmt.Sprintf("%s\n\n• <b>%s:</b> %s%s",
 		i18n.T(loc, "main_menu.ready"),
@@ -188,8 +190,12 @@ func GetMainDashboard(
 	return text, &telegram.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
-func GetRobotMenu(caps *valetudo.CapabilitySet, status, flag string, loc i18n.Locale) (string, *telegram.InlineKeyboardMarkup) {
-	text := fmt.Sprintf("%s\n\n• <b>%s:</b> %s", i18n.T(loc, "robot_menu.title"), i18n.T(loc, "telemetry.lbl_status"), FormatStatusDisplay(status, flag, loc))
+func GetRobotMenu(caps *valetudo.CapabilitySet, status, flag string, loc i18n.Locale, rErr ...*valetudo.RobotError) (string, *telegram.InlineKeyboardMarkup) {
+	var errObj *valetudo.RobotError
+	if len(rErr) > 0 {
+		errObj = rErr[0]
+	}
+	text := fmt.Sprintf("%s\n\n• <b>%s:</b> %s", i18n.T(loc, "robot_menu.title"), i18n.T(loc, "telemetry.lbl_status"), FormatStatusDisplayWithError(status, flag, errObj, loc))
 	var rows [][]telegram.InlineKeyboardButton
 
 	if caps.Has(valetudo.CapBasicControl) {
