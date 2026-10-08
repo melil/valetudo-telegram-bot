@@ -2,8 +2,8 @@
 # ==============================================================================
 #  🤖 Valetudo Telegram Bot — Интерактивный онлайн-установщик (Installer)
 #  Использование:
-#    sh -c "$(curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
-#    curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh && sh /tmp/install.sh 1.0.13
+#    sh -c "$(curl -fsSLk https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -q --no-check-certificate -O- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
+#    curl -fsSLk https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh && sh /tmp/install.sh 1.0.18
 # ==============================================================================
 
 set -e
@@ -43,10 +43,17 @@ if [ ! -d "/data" ] && [ "$(uname -s)" != "Linux" ]; then
             read -r R_USER </dev/tty
             R_USER=${R_USER:-root}
             echo -e "${CYAN}Подключение к ${R_USER}@${R_IP} и запуск установки...${NC}"
-            ssh -t "${R_USER}@${R_IP}" "curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh -o /tmp/install.sh 2>/dev/null || wget -qO /tmp/install.sh https://raw.githubusercontent.com/${REPO}/main/install.sh; sh /tmp/install.sh ${TARGET_VER}; rm -f /tmp/install.sh"
+            ssh -t "${R_USER}@${R_IP}" "curl -fsSLk https://raw.githubusercontent.com/${REPO}/main/install.sh -o /tmp/install.sh 2>/dev/null || wget -q --no-check-certificate -O /tmp/install.sh https://raw.githubusercontent.com/${REPO}/main/install.sh 2>/dev/null || curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh -o /tmp/install.sh 2>/dev/null || wget -qO /tmp/install.sh https://raw.githubusercontent.com/${REPO}/main/install.sh; sh /tmp/install.sh ${TARGET_VER}; rm -f /tmp/install.sh"
             exit 0
             ;;
     esac
+fi
+
+# Проверка системного времени (на роботах после перезагрузки без NTP время может быть сброшено на 1970 год, что ломает TLS/HTTPS)
+if [ "$(date +%Y)" -lt 2024 ]; then
+    echo -e "${YELLOW}Предупреждение: системное время на устройстве не синхронизировано ($(date)).${NC}"
+    echo -e "${YELLOW}Попытка синхронизации времени по NTP...${NC}"
+    ntpd -q -p pool.ntp.org 2>/dev/null || ntpd -q -p time.google.com 2>/dev/null || true
 fi
 
 # ------------------------------------------------------------------------------
@@ -219,12 +226,37 @@ cd "$INSTALL_DIR"
 download() {
     local url="$1"
     local dest="$2"
+
+    # 1. Попытка curl
     if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "$url" -o "$dest"
+        # Сначала пробуем со стандартной валидацией TLS
+        if curl -fsSL "$url" -o "$dest" 2>/dev/null; then
+            return 0
+        fi
+        # На прошивках роботов (OpenWrt/Tina Linux) часто отсутствуют CA-сертификаты (ошибка curl 60).
+        # Пробуем curl с флагом -k (--insecure)
+        if curl -fsSLk "$url" -o "$dest" 2>/dev/null; then
+            return 0
+        fi
+    fi
+
+    # 2. Попытка wget (если curl не установлен или не смог завершить загрузку)
+    if command -v wget >/dev/null 2>&1; then
+        if wget -qO "$dest" "$url" 2>/dev/null; then
+            return 0
+        fi
+        if wget -q --no-check-certificate -O "$dest" "$url" 2>/dev/null; then
+            return 0
+        fi
+    fi
+
+    # 3. Финальная попытка с открытым выводом ошибок в консоль для диагностики
+    if command -v curl >/dev/null 2>&1; then
+        curl -fSLk "$url" -o "$dest"
     elif command -v wget >/dev/null 2>&1; then
-        wget -qO "$dest" "$url"
+        wget --no-check-certificate -O "$dest" "$url"
     else
-        echo -e "${RED}Ошибка: в системе не найден ни curl, ни wget!${NC}"
+        echo -e "${RED}Ошибка: в системе не найден ни curl, ни wget!${NC}" >&2
         return 1
     fi
 }

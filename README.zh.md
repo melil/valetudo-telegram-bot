@@ -71,19 +71,19 @@
 
 **一键安装最新版本：**
 ```sh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
+sh -c "$(curl -fsSLk https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -q --no-check-certificate -O- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
 ```
 
 **或先下载脚本再执行：**
 ```sh
-wget -qO /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh
+curl -fsSLk https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh 2>/dev/null || wget -q --no-check-certificate -O /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh
 sh /tmp/install.sh
 ```
 
-**安装指定版本（例如 `1.0.13`）：**
+**安装指定版本（例如 `1.0.18`）：**
 ```sh
-wget -qO /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh
-sh /tmp/install.sh 1.0.13
+curl -fsSLk https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh 2>/dev/null || wget -q --no-check-certificate -O /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh
+sh /tmp/install.sh 1.0.18
 ```
 
 ---

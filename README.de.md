@@ -71,19 +71,19 @@ Ausschließlich mit der Go-Standardbibliothek ohne externe Laufzeitabhängigkeit
 
 **Installation der neuesten Version (Einzeiler):**
 ```sh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
+sh -c "$(curl -fsSLk https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || wget -q --no-check-certificate -O- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh 2>/dev/null || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || wget -qO- https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh)"
 ```
 
 **Oder Skript herunterladen und ausführen:**
 ```sh
-wget -qO /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh
+curl -fsSLk https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh 2>/dev/null || wget -q --no-check-certificate -O /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh
 sh /tmp/install.sh
 ```
 
-**Installation einer bestimmten Version (z. B. `1.0.13`):**
+**Installation einer bestimmten Version (z. B. `1.0.18`):**
 ```sh
-wget -qO /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh || curl -fsSL https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh
-sh /tmp/install.sh 1.0.13
+curl -fsSLk https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh -o /tmp/install.sh 2>/dev/null || wget -q --no-check-certificate -O /tmp/install.sh https://raw.githubusercontent.com/melil/valetudo-telegram-bot/main/install.sh
+sh /tmp/install.sh 1.0.18
 ```
 
 ---

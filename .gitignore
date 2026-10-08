@@ -24,6 +24,12 @@ go.work.sum
 .env.*
 *.local
 
+# Database & backups
+*.db
+*.db-wal
+*.db-shm
+/backups/
+
 # IDE and editor files
 .idea/
 .vscode/
